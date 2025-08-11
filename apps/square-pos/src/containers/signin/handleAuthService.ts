@@ -24,7 +24,6 @@ const handleOAuthCallback = async ({
       if (result?.error) {
         setError(`Session creation failed: ${result.error}`)
       } else {
-        // console.log('Redirecting to dashboard')
         window.location.href = '/dashboard'
       }
     } else {
@@ -38,8 +37,8 @@ const handleOAuthCallback = async ({
       }`,
     )
   } finally {
-    // console.info('Setting isProcessing to false')
-    // console.log('isProcessing:', setIsProcessing)
+    console.info('Setting isProcessing to false')
+    setIsProcessing(false)
   }
 }
 

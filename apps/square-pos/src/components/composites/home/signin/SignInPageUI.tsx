@@ -19,11 +19,9 @@ export default function SignInPageUI({
   error,
   hasOAuthCode,
 }: SignInPageUIProps) {
-  // if (status === 'loading') {
-  //   return <HomeLoader />
-  // }
-
-  const router = useRouter()
+  if (status === 'loading' && !isProcessing) {
+    return <HomeLoader />
+  }
 
   if (session && !hasOAuthCode && !isProcessing) {
     return <Authenticated session={session} />
@@ -32,11 +30,6 @@ export default function SignInPageUI({
   if (isProcessing) {
     return <AuthenticationProcessor />
   }
-
-  // const handleSignIn = () => {
-  //   const authUrl = startSquareOAuth
-  //   router.push(authUrl.toString())
-  // }
 
   return (
     !isProcessing && (

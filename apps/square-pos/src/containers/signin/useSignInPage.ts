@@ -5,8 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react' // named imports help to import multiple exports
 
-export default function 
-useSignInPageLogic() {
+export default function useSignInPageLogic() {
   const { data: session, status } = useSession()
   const searchParams = useSearchParams()
   const [isProcessing, setIsProcessing] = useState(false)
