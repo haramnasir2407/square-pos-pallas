@@ -1,8 +1,9 @@
 // * this container contains the business logic and the UI
 
+import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
-import { auth } from '~/auth'
 
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import fetchDashboardData, {
   type DashboardDataReturn,
 } from '@/containers/dashboard/dashboardDataService'
@@ -16,13 +17,12 @@ import Dashboard from '../../components/composites/dashboard'
 // * server component
 /* @compile */
 export default async function DashboardContainer() {
-  // * Check the session
-  const session = await auth()
+  const session = await getServerSession(authOptions)
+
   if (!session) {
-    redirect('/signin')
-    return null
+    redirect('/')
   }
-  console.log("dashboard is server component")
+  console.log('dashboard is server component')
 
   // * get data from the server
   const data: DashboardDataReturn = await fetchDashboardData({
