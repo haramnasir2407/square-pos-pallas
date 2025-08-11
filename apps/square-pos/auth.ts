@@ -99,7 +99,7 @@ const authConfig: NextAuthConfig = {
   //     log.debug(code, message)
   //   },
   // },
-  debug: process.env.NODE_ENV === 'development',
+  // debug: process.env.NODE_ENV === 'development',
 }
 
 const result = NextAuth(authConfig)

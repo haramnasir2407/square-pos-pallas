@@ -10,6 +10,7 @@ import type { SignInPageUIProps } from '@/shared/types/catalog'
 import Link from 'next/link'
 import { Box, Flex } from '~/styled-system/jsx'
 import { containerStyle, linkStyle, signInButton, termsMargin } from './styles/styles'
+import { useRouter } from 'next/navigation'
 
 export default function SignInPageUI({
   session,
@@ -22,6 +23,8 @@ export default function SignInPageUI({
   //   return <HomeLoader />
   // }
 
+  const router = useRouter()
+
   if (session && !hasOAuthCode && !isProcessing) {
     return <Authenticated session={session} />
   }
@@ -29,6 +32,11 @@ export default function SignInPageUI({
   if (isProcessing) {
     return <AuthenticationProcessor />
   }
+
+  // const handleSignIn = () => {
+  //   const authUrl = startSquareOAuth
+  //   router.push(authUrl.toString())
+  // }
 
   return (
     !isProcessing && (
