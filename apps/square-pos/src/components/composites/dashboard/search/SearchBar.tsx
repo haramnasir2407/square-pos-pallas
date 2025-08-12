@@ -52,6 +52,7 @@ export default function SearchBar({ setParams, prevParams }: SearchBarProps) {
 
   return (
     // * pallas ui form and input components
+    // why use form here
     <Form.Provider form={form} onSubmit={(e) => e.preventDefault()}>
       <Form.Item>
         <Form.Control>

@@ -5,7 +5,7 @@ import { Button } from '@/components/primitives/ui/button'
 import { Checkbox } from '@/components/primitives/ui/checkbox'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
-import Select from '@/components/primitives/ui/select'
+// removed Select dropdown in favor of checkbox lists
 import type { Discount, TaxRate } from '@/shared/store/useCartStore'
 import Image from 'next/image'
 import { useState } from 'react'
@@ -38,17 +38,50 @@ export default function CartItemCard({
   item,
   inventory,
   atMaxQty,
-  selectedDiscount,
   discounts,
   taxes,
+  orderLevelDiscount,
+  orderLevelTax,
   onQtyChange,
   onRemove,
-  onDiscountToggle,
-  onDiscountSelect,
-  onTaxToggle,
-  onTaxSelect,
+  onToggleDiscount,
+  onToggleTaxRate,
 }: CartItemCardProps) {
   const [open, setOpen] = useState(false)
+  // Normalize order-level to item-level shapes for display/merge
+  const orderLevelTaxAsTaxRate: TaxRate | null = orderLevelTax
+    ? { name: orderLevelTax.name, percentage: orderLevelTax.percentage }
+    : null
+  const orderLevelDiscountAsDiscount: Discount | null = orderLevelDiscount
+    ? {
+        discount_name: orderLevelDiscount.name,
+        discount_value: `${orderLevelDiscount.percentage}%`,
+      }
+    : null
+
+  const toNumber = (p: string | number | null) =>
+    typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+  const mergeUniqueTaxes = (list: TaxRate[], extra: TaxRate | null) => {
+    const base = [...list]
+    if (extra) {
+      const exists = base.some(
+        (t) => t.name === extra.name && toNumber(t.percentage) === toNumber(extra.percentage),
+      )
+      if (!exists) base.push(extra)
+    }
+    return base
+  }
+  const mergeUniqueDiscounts = (list: Discount[], extra: Discount | null) => {
+    const base = [...list]
+    if (extra) {
+      const exists = base.some((d) => d.discount_name === extra.discount_name)
+      if (!exists) base.push(extra)
+    }
+    return base
+  }
+
+  const taxesForList = mergeUniqueTaxes(taxes, orderLevelTaxAsTaxRate)
+  const discountsForList = mergeUniqueDiscounts(discounts, orderLevelDiscountAsDiscount)
 
   return (
     <Flex
@@ -64,7 +97,7 @@ export default function CartItemCard({
         <Box className={itemInfo}>
           <Box className={itemName}>{item.name}</Box>
           <Box className={itemPrice}>${item.price ? (item.price / 100).toFixed(2) : 'N/A'}</Box>
-          <Box className={itemStock}>Qty in stock: {inventory?.quantity ?? '-'}</Box>
+          {/* <Box className={itemStock}>Qty in stock: {inventory?.quantity ?? '-'}</Box> */}
         </Box>
         <ButtonVariant
           variant="text"
@@ -124,98 +157,88 @@ export default function CartItemCard({
               </Modal.Header>
               <Flex direction="column" gap="gap.component.sm" className={optionsContainer}>
                 {/* Tax */}
-                {taxes.length > 0 && (
-                  <Flex className={taxRow}>
-                    <Label className={taxLabel}>
-                      <Checkbox
-                        size="sm"
-                        className={taxCheckbox}
-                        checked={!!item.is_taxable && item.itemTaxRate !== undefined}
-                        onCheckedChange={(checked) => onTaxToggle(checked as boolean)}
-                      />
-                      Apply Tax
-                    </Label>
-                    <Select.Root
-                      size="sm"
-                      value={item.itemTaxRate?.toString() ?? ''}
-                      onValueChange={onTaxSelect}
-                    >
-                      <Select.Trigger className={css({ fontSize: 'xs' })}>
-                        <Select.Value placeholder="Select Tax" />
-                      </Select.Trigger>
-                      <Select.Content
-                        position="popper"
-                        sideOffset={5}
-                        className={css({
-                          zIndex: 1000,
-                          fontSize: 'xs',
-                        })}
-                      >
-                        <Select.Group>
-                          <Select.Label>Taxes</Select.Label>
-                          {taxes.map((tax) => (
-                            <Select.Item
-                              key={tax.name}
-                              value={tax.percentage?.toString() ?? ''}
-                              className={css({ fontSize: 'xs' })}
-                            >
-                              {tax.name} ({tax.percentage}%)
-                            </Select.Item>
-                          ))}
-                        </Select.Group>
-                      </Select.Content>
-                    </Select.Root>
+                {taxesForList.length > 0 && (
+                  <Flex direction="column" gap="2">
+                    <Label className={taxLabel}>Apply Taxes</Label>
+                    {taxesForList.map((tax) => {
+                      const isOrderLevel =
+                        !!orderLevelTaxAsTaxRate &&
+                        tax.name === orderLevelTaxAsTaxRate.name &&
+                        toNumber(tax.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage)
+                      const isSelected =
+                        isOrderLevel ||
+                        (item.appliedTaxRates ?? []).some(
+                          (t: TaxRate) =>
+                            t.name === tax.name &&
+                            toNumber(t.percentage) === toNumber(tax.percentage),
+                        )
+                      return (
+                        <Label
+                          htmlFor={tax.name}
+                          key={tax.name}
+                          className={css({
+                            fontSize: 'xs',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2',
+                          })}
+                        >
+                          <Checkbox
+                            id={tax.name}
+                            size="sm"
+                            className={taxCheckbox}
+                            checked={isSelected}
+                            disabled={isOrderLevel}
+                            onCheckedChange={(checked) => {
+                              onToggleTaxRate(tax, Boolean(checked))
+                            }}
+                          />
+                          {tax.name} ({tax.percentage}%)
+                        </Label>
+                      )
+                    })}
                   </Flex>
                 )}
                 {/* Discount */}
-                {discounts.length > 0 && (
-                  <Flex className={taxRow}>
-                    <Label className={discountLabel}>
-                      <Checkbox
-                        size="sm"
-                        className={discountCheckbox}
-                        checked={!!item.itemDiscount}
-                        onCheckedChange={(checked) => onDiscountToggle(checked as boolean)}
-                      />
-                      Apply Discount
-                    </Label>
-                    <Select.Root
-                      size="sm"
-                      value={selectedDiscount?.discount_name || ''}
-                      onValueChange={(value) => {
-                        const discount = discounts.find((d) => d.discount_name === value)
-                        onDiscountSelect(discount as Discount)
-                      }}
-                    >
-                      <Select.Trigger
-                        className={css({
-                          fontSize: 'xs',
-                        })}
-                      >
-                        <Select.Value placeholder="Select Discount" />
-                      </Select.Trigger>
-                      <Select.Content
-                        position="popper"
-                        sideOffset={5}
-                        className={css({
-                          zIndex: 1000,
-                          fontSize: 'xs',
-                        })}
-                      >
-                        <Select.Group>
-                          <Select.Label>Discounts</Select.Label>
-                          {discounts.map((discount) => (
-                            <Select.Item
-                              key={discount.discount_name}
-                              value={discount.discount_name}
-                              className={css({ fontSize: 'xs' })}
-                            >
-                              {discount.discount_name}
-                            </Select.Item>
-                          ))}
-                        </Select.Group>
-                      </Select.Content>
-                    </Select.Root>
+                {discountsForList.length > 0 && (
+                  <Flex direction="column" gap="2">
+                    <Label className={discountLabel}>Apply Discounts</Label>
+                    {discountsForList.map((discount) => {
+                      const isOrderLevel =
+                        !!orderLevelDiscountAsDiscount &&
+                        discount.discount_name === orderLevelDiscountAsDiscount.discount_name
+                      const isSelected =
+                        isOrderLevel ||
+                        (item.appliedDiscounts ?? []).some(
+                          (d: Discount) => d.discount_name === discount.discount_name,
+                        ) ||
+                        (item.itemDiscount &&
+                          item.itemDiscount.discount_name === discount.discount_name)
+                      return (
+                        <Label
+                          htmlFor={discount.discount_name}
+                          key={discount.discount_name}
+                          className={css({
+                            fontSize: 'xs',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2',
+                          })}
+                        >
+                          <Checkbox
+                            id={discount.discount_name}
+                            size="sm"
+                            className={discountCheckbox}
+                            checked={isSelected}
+                            disabled={isOrderLevel}
+                            onCheckedChange={(checked) => {
+                              onToggleDiscount(discount as Discount, Boolean(checked))
+                            }}
+                          />
+                          {discount.discount_name}
+                        </Label>
+                      )
+                    })}
                   </Flex>
                 )}
               </Flex>
@@ -230,32 +253,61 @@ export default function CartItemCard({
         </Box>
       </Box>
       {/* Applied Discount and Tax */}
+      {(() => {
+        // Build effective applied lists for display
+        const appliedTaxes: TaxRate[] = []
+        if (item.appliedTaxRates && item.appliedTaxRates.length > 0) {
+          appliedTaxes.push(...item.appliedTaxRates)
+        } else if (item.is_taxable && item.itemTaxRate !== undefined) {
+          const legacy = {
+            name:
+              item.taxes?.find((t: TaxRate) => Number(t.percentage) === item.itemTaxRate)?.name ||
+              'Tax',
+            percentage: item.itemTaxRate,
+          }
+          appliedTaxes.push(legacy)
+        }
+        if (orderLevelTaxAsTaxRate) {
+          const exists = appliedTaxes.some(
+            (t) =>
+              t.name === orderLevelTaxAsTaxRate.name &&
+              toNumber(t.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage),
+          )
+          if (!exists) appliedTaxes.push(orderLevelTaxAsTaxRate)
+        }
 
-      {(item.itemDiscount || (item.is_taxable && item.itemTaxRate !== undefined)) && (
-        <VStack gap={1} align="start" mt={1}>
-          {item.is_taxable && item.itemTaxRate !== undefined && (
-            <Box className={css({ fontSize: 'xs' })}>
-              Tax:&nbsp;{(() => {
-                const tax = (item.taxes || []).find(
-                  (t: TaxRate) => Number(t.percentage) === item.itemTaxRate,
-                )
-                return tax ? `${tax.name} (${tax.percentage}%)` : `${item.itemTaxRate}%`
-              })()}
-            </Box>
-          )}
+        const appliedDiscounts: Discount[] = []
+        if (item.appliedDiscounts && item.appliedDiscounts.length > 0) {
+          appliedDiscounts.push(...item.appliedDiscounts)
+        } else if (item.itemDiscount) {
+          appliedDiscounts.push(item.itemDiscount)
+        }
+        if (orderLevelDiscountAsDiscount) {
+          const exists = appliedDiscounts.some(
+            (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
+          )
+          if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
+        }
 
-          {item.itemDiscount && (
-            <Box className={css({ fontSize: 'xs' })}>
-              Discount:&nbsp;
-              {item.itemDiscount.discount_name === 'Buy One Get One Free' && item.quantity >= 2
-                ? item.itemDiscount.discount_name
-                : item.itemDiscount.discount_name !== 'Buy One Get One Free'
-                  ? item.itemDiscount.discount_name
-                  : 'None'}
-            </Box>
-          )}
-        </VStack>
-      )}
+        if (appliedTaxes.length === 0 && appliedDiscounts.length === 0) return null
+
+        return (
+          <VStack gap={1} align="start" mt={1}>
+            {appliedTaxes.length > 0 && (
+              <Box className={css({ fontSize: 'xs' })}>
+                Tax:&nbsp;
+                {appliedTaxes.map((t) => `${t.name} (${t.percentage}%)`).join(', ')}
+              </Box>
+            )}
+            {appliedDiscounts.length > 0 && (
+              <Box className={css({ fontSize: 'xs' })}>
+                Discount:&nbsp;
+                {appliedDiscounts.map((d) => d.discount_name).join(', ')}
+              </Box>
+            )}
+          </VStack>
+        )
+      })()}
     </Flex>
   )
 }

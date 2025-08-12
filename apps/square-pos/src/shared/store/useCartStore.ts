@@ -18,13 +18,18 @@ export type CartItem = {
   price: number | null
   imageUrl: string | undefined
   quantity: number
+  // legacy single-select fields (kept for backward compatibility)
   is_taxable?: boolean
   itemTaxRate?: number
   category?: string
+  // legacy single-select field (kept for backward compatibility)
   itemDiscount?: Discount
   variationId?: string
   discounts?: Discount[]
   taxes?: TaxRate[]
+  // new multi-select fields
+  appliedDiscounts?: Discount[]
+  appliedTaxRates?: TaxRate[]
 }
 
 type CartState = {
@@ -37,6 +42,9 @@ type CartState = {
   removeItemDiscount: (itemId: string) => void
   toggleItemTax: (itemId: string, enabled: boolean) => void
   setItemTaxRate: (itemId: string, taxRate: TaxRate) => void
+  // multi-select toggles
+  toggleItemDiscount: (itemId: string, discount: Discount, enabled: boolean) => void
+  toggleItemTaxRate: (itemId: string, taxRate: TaxRate, enabled: boolean) => void
   getOrderSummary: () => OrderSummary
 }
 
@@ -102,23 +110,79 @@ export const useCartStore = create<CartState>()(
           let itemDiscountValue = 0
           let itemTaxValue = 0
 
-          // Apply discount if present
-          if (item.itemDiscount) {
-            appliedDiscounts.push(item.itemDiscount)
-            itemDiscountValue = calculateItemDiscountValue(item, itemSubtotal)
+          // Multi-discount support
+          const effectiveDiscounts: Discount[] =
+            (item.appliedDiscounts && item.appliedDiscounts.length > 0)
+              ? item.appliedDiscounts
+              : item.itemDiscount
+                ? [item.itemDiscount]
+                : []
+
+          // Collect applied discounts for summary
+          appliedDiscounts.push(...effectiveDiscounts)
+
+          // Calculate combined discount value
+          if (effectiveDiscounts.length > 0) {
+            // BOGO first
+            const hasBogo = effectiveDiscounts.some(
+              (d) => typeof d.discount_name === 'string' && d.discount_name.toLowerCase().includes('buy one get one'),
+            )
+            if (hasBogo && item.quantity >= 2) {
+              const freeItems = Math.floor(item.quantity / 2)
+              itemDiscountValue += freeItems * itemPrice
+            }
+            // Percentage discounts next (sum of percents on remaining subtotal)
+            const percentSum = effectiveDiscounts
+              .map((d) => (typeof d.discount_value === 'string' && d.discount_value.includes('%')
+                ? Number.parseFloat(d.discount_value)
+                : undefined))
+              .filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
+              .reduce((acc, v) => acc + v, 0)
+            if (percentSum > 0) {
+              const remainingAfterBogo = Math.max(itemSubtotal - itemDiscountValue, 0)
+              itemDiscountValue += (remainingAfterBogo * percentSum) / 100
+            }
+            // Fixed-amount discounts (numbers or numeric strings)
+            const fixedSumPerUnit = effectiveDiscounts
+              .map((d) => {
+                if (typeof d.discount_value === 'number') return d.discount_value
+                if (typeof d.discount_value === 'string' && !d.discount_value.includes('%')) {
+                  const num = Number.parseFloat(d.discount_value)
+                  return Number.isNaN(num) ? 0 : num
+                }
+                return 0
+              })
+              .reduce((acc, v) => acc + v, 0)
+            if (fixedSumPerUnit > 0) {
+              itemDiscountValue += fixedSumPerUnit * item.quantity
+            }
           }
-          const discountedSubtotal = itemSubtotal - itemDiscountValue
+
+          const discountedSubtotal = Math.max(itemSubtotal - itemDiscountValue, 0)
           discountAmount += itemDiscountValue
 
-          // Apply tax if present and enabled
-          if (item.is_taxable && item.itemTaxRate !== undefined) {
-            appliedTaxRates.push({
-              name:
-                item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name || 'Tax',
-              percentage: item.itemTaxRate,
-            })
-            itemTaxValue = (discountedSubtotal * item.itemTaxRate) / 100
+          // Multi-tax support
+          const effectiveTaxes: TaxRate[] =
+            (item.appliedTaxRates && item.appliedTaxRates.length > 0)
+              ? item.appliedTaxRates
+              : item.is_taxable && item.itemTaxRate !== undefined
+                ? [{
+                    name: item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name || 'Tax',
+                    percentage: item.itemTaxRate,
+                  }]
+                : []
+
+          appliedTaxRates.push(...effectiveTaxes)
+
+          if (effectiveTaxes.length > 0) {
+            const percentSum = effectiveTaxes
+              .map((t) => (typeof t.percentage === 'number' ? t.percentage : Number(t.percentage)))
+              .filter((v) => typeof v === 'number' && !Number.isNaN(v)) as number[]
+            const taxPercents = (percentSum as unknown as number[]) // satisfy linter with explicit grouping
+            const totalPercent = taxPercents.reduce((acc: number, v: number) => acc + v, 0)
+            itemTaxValue = (discountedSubtotal * totalPercent) / 100
           }
+
           taxAmount += itemTaxValue
           subtotal += discountedSubtotal
         }
@@ -170,6 +234,49 @@ export const useCartStore = create<CartState>()(
                 }
               : item,
           ),
+        })),
+      // Multi-select toggles
+      toggleItemDiscount: (itemId: string, discount: Discount, enabled: boolean) =>
+        set((state: CartState) => ({
+          items: state.items.map((item: CartItem) => {
+            if (item.id !== itemId) return item
+            const current = item.appliedDiscounts ?? []
+            const exists = current.some((d) => d.discount_name === discount.discount_name)
+            if (enabled && !exists) {
+              return { ...item, appliedDiscounts: [...current, discount] }
+            }
+            if (!enabled && exists) {
+              return {
+                ...item,
+                appliedDiscounts: current.filter((d) => d.discount_name !== discount.discount_name),
+              }
+            }
+            return item
+          }),
+        })),
+      toggleItemTaxRate: (itemId: string, taxRate: TaxRate, enabled: boolean) =>
+        set((state: CartState) => ({
+          items: state.items.map((item: CartItem) => {
+            if (item.id !== itemId) return item
+            const current = item.appliedTaxRates ?? []
+            const toNumber = (p: string | number | null) =>
+              typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+            const exists = current.some(
+              (t) => t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage),
+            )
+            if (enabled && !exists) {
+              return { ...item, appliedTaxRates: [...current, taxRate] }
+            }
+            if (!enabled && exists) {
+              return {
+                ...item,
+                appliedTaxRates: current.filter(
+                  (t) => !(t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage)),
+                ),
+              }
+            }
+            return item
+          }),
         })),
     }),
     {

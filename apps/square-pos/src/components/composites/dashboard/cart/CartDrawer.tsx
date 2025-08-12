@@ -55,6 +55,8 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const applyItemDiscount = useCartStore((state) => state.applyItemDiscount)
   const removeItemDiscount = useCartStore((state) => state.removeItemDiscount)
   const setItemTaxRate = useCartStore((state) => state.setItemTaxRate)
+  const toggleItemDiscount = useCartStore((state) => state.toggleItemDiscount)
+  const toggleItemTaxRate = useCartStore((state) => state.toggleItemTaxRate)
 
   const [open, setOpen] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
@@ -136,46 +138,18 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                       item={item}
                       inventory={inventory ?? null}
                       atMaxQty={atMaxQty}
-                      selectedDiscount={selectedDiscounts[item.id]}
-                      selectedTax={{
-                        name: item.name,
-                        percentage: selectedTaxes[item.id]?.itemTaxRate ?? 0,
-                      }}
                       discounts={discounts}
                       taxes={taxes}
+                      orderLevelDiscount={selectedOrderDiscount}
+                      orderLevelTax={selectedOrderTax}
                       onQtyChange={(qty) => updateQuantity(item.id, qty)}
                       onRemove={() => removeItem(item.id)}
-                      onDiscountToggle={(checked) =>
-                        handleDiscountToggle({
-                          item,
-                          checked,
-                          selectedDiscounts,
-                          applyItemDiscount,
-                          removeItemDiscount,
-                        })
-                      }
-                      onDiscountSelect={(discount) =>
-                        handleDiscountSelect({
-                          setSelectedDiscounts,
-                          item,
-                          discount,
-                        })
-                      }
-                      onTaxToggle={(checked) =>
-                        handleTaxToggle({
-                          item,
-                          checked,
-                          toggleItemTax,
-                        })
-                      }
-                      onTaxSelect={(value) =>
-                        handleTaxSelect({
-                          setSelectedTaxes,
-                          item,
-                          value,
-                          setItemTaxRate,
-                        })
-                      }
+                      onToggleDiscount={(discount, checked) => {
+                        toggleItemDiscount(item.id, discount, checked)
+                      }}
+                      onToggleTaxRate={(tax, checked) => {
+                        toggleItemTaxRate(item.id, tax, checked)
+                      }}
                     />
                   )
                 })}

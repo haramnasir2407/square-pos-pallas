@@ -5,16 +5,14 @@ interface CartItemCardProps {
   item: CartItem
   inventory: { state: string; quantity: string } | null
   atMaxQty: boolean
-  selectedDiscount: Discount
-  selectedTax: TaxRate
   discounts: Discount[]
   taxes: TaxRate[]
+  orderLevelDiscount?: SelectedOrderDiscount | null
+  orderLevelTax?: SelectedOrderTax | null
   onQtyChange: (qty: number) => void
   onRemove: () => void
-  onDiscountToggle: (checked: boolean) => void
-  onDiscountSelect: (discount: Discount) => void
-  onTaxToggle: (checked: boolean) => void
-  onTaxSelect: (value: string) => void
+  onToggleDiscount: (discount: Discount, checked: boolean) => void
+  onToggleTaxRate: (tax: TaxRate, checked: boolean) => void
 }
 
 /**

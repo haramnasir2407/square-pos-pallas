@@ -38,7 +38,7 @@ const handleOAuthCallback = async ({
     )
   } finally {
     console.info('Setting isProcessing to false')
-    setIsProcessing(false)
+    // setIsProcessing(false)
   }
 }
 
