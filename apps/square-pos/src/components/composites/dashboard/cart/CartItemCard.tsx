@@ -5,6 +5,7 @@ import { Button } from '@/components/primitives/ui/button'
 import { Checkbox } from '@/components/primitives/ui/checkbox'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
+import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
 // removed Select dropdown in favor of checkbox lists
 import type { Discount, TaxRate } from '@/shared/store/useCartStore'
 import Image from 'next/image'
@@ -46,6 +47,8 @@ export default function CartItemCard({
   onRemove,
   onToggleDiscount,
   onToggleTaxRate,
+  onExcludeOrderLevelDiscount,
+  onExcludeOrderLevelTaxRate,
 }: CartItemCardProps) {
   const [open, setOpen] = useState(false)
   // Normalize order-level to item-level shapes for display/merge
@@ -61,9 +64,9 @@ export default function CartItemCard({
 
   const toNumber = (p: string | number | null) =>
     typeof p === 'number' ? p : p ? Number(p) : Number.NaN
-  const mergeUniqueTaxes = (list: TaxRate[], extra: TaxRate | null) => {
+  const mergeUniqueTaxes = (list: TaxRate[], extras: TaxRate[]) => {
     const base = [...list]
-    if (extra) {
+    for (const extra of extras) {
       const exists = base.some(
         (t) => t.name === extra.name && toNumber(t.percentage) === toNumber(extra.percentage),
       )
@@ -71,17 +74,26 @@ export default function CartItemCard({
     }
     return base
   }
-  const mergeUniqueDiscounts = (list: Discount[], extra: Discount | null) => {
+  const mergeUniqueDiscounts = (list: Discount[], extras: Discount[]) => {
     const base = [...list]
-    if (extra) {
+    for (const extra of extras) {
       const exists = base.some((d) => d.discount_name === extra.discount_name)
       if (!exists) base.push(extra)
     }
     return base
   }
 
-  const taxesForList = mergeUniqueTaxes(taxes, orderLevelTaxAsTaxRate)
-  const discountsForList = mergeUniqueDiscounts(discounts, orderLevelDiscountAsDiscount)
+  const orderLevelTaxesAll: TaxRate[] = ORDER_LEVEL_TAXES.map((t) => ({
+    name: t.name,
+    percentage: t.percentage,
+  }))
+  const orderLevelDiscountsAll: Discount[] = ORDER_LEVEL_DISCOUNTS.map((d) => ({
+    discount_name: d.name,
+    discount_value: `${d.percentage}%`,
+  }))
+
+  const taxesForList = mergeUniqueTaxes(taxes, orderLevelTaxesAll)
+  const discountsForList = mergeUniqueDiscounts(discounts, orderLevelDiscountsAll)
 
   return (
     <Flex
@@ -165,6 +177,11 @@ export default function CartItemCard({
                         !!orderLevelTaxAsTaxRate &&
                         tax.name === orderLevelTaxAsTaxRate.name &&
                         toNumber(tax.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage)
+                      const isExcluded = (item.excludedOrderTaxRates ?? []).some(
+                        (t: TaxRate) =>
+                          t.name === tax.name &&
+                          toNumber(t.percentage) === toNumber(tax.percentage),
+                      )
                       const isSelected =
                         isOrderLevel ||
                         (item.appliedTaxRates ?? []).some(
@@ -187,10 +204,14 @@ export default function CartItemCard({
                             id={tax.name}
                             size="sm"
                             className={taxCheckbox}
-                            checked={isSelected}
-                            disabled={isOrderLevel}
+                            checked={isOrderLevel ? !isExcluded : isSelected}
                             onCheckedChange={(checked) => {
-                              onToggleTaxRate(tax, Boolean(checked))
+                              if (isOrderLevel) {
+                                // toggle exclusion for this item only
+                                onExcludeOrderLevelTaxRate(tax, !(checked as boolean))
+                              } else {
+                                onToggleTaxRate(tax, checked as boolean)
+                              }
                             }}
                           />
                           {tax.name} ({tax.percentage}%)
@@ -207,6 +228,9 @@ export default function CartItemCard({
                       const isOrderLevel =
                         !!orderLevelDiscountAsDiscount &&
                         discount.discount_name === orderLevelDiscountAsDiscount.discount_name
+                      const isExcluded = (item.excludedOrderDiscountNames ?? []).includes(
+                        discount.discount_name,
+                      )
                       const isSelected =
                         isOrderLevel ||
                         (item.appliedDiscounts ?? []).some(
@@ -229,10 +253,17 @@ export default function CartItemCard({
                             id={discount.discount_name}
                             size="sm"
                             className={discountCheckbox}
-                            checked={isSelected}
-                            disabled={isOrderLevel}
+                            checked={isOrderLevel ? !isExcluded : isSelected}
                             onCheckedChange={(checked) => {
-                              onToggleDiscount(discount as Discount, Boolean(checked))
+                              if (isOrderLevel) {
+                                // toggle exclusion for this item only
+                                onExcludeOrderLevelDiscount(
+                                  discount.discount_name,
+                                  !(checked as boolean),
+                                )
+                              } else {
+                                onToggleDiscount(discount as Discount, checked as boolean)
+                              }
                             }}
                           />
                           {discount.discount_name}
@@ -268,12 +299,19 @@ export default function CartItemCard({
           appliedTaxes.push(legacy)
         }
         if (orderLevelTaxAsTaxRate) {
-          const exists = appliedTaxes.some(
-            (t) =>
+          const isExcluded = (item.excludedOrderTaxRates ?? []).some(
+            (t: TaxRate) =>
               t.name === orderLevelTaxAsTaxRate.name &&
               toNumber(t.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage),
           )
-          if (!exists) appliedTaxes.push(orderLevelTaxAsTaxRate)
+          if (!isExcluded) {
+            const exists = appliedTaxes.some(
+              (t) =>
+                t.name === orderLevelTaxAsTaxRate.name &&
+                toNumber(t.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage),
+            )
+            if (!exists) appliedTaxes.push(orderLevelTaxAsTaxRate)
+          }
         }
 
         const appliedDiscounts: Discount[] = []
@@ -283,10 +321,15 @@ export default function CartItemCard({
           appliedDiscounts.push(item.itemDiscount)
         }
         if (orderLevelDiscountAsDiscount) {
-          const exists = appliedDiscounts.some(
-            (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
+          const isExcluded = (item.excludedOrderDiscountNames ?? []).includes(
+            orderLevelDiscountAsDiscount.discount_name,
           )
-          if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
+          if (!isExcluded) {
+            const exists = appliedDiscounts.some(
+              (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
+            )
+            if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
+          }
         }
 
         if (appliedTaxes.length === 0 && appliedDiscounts.length === 0) return null
@@ -294,15 +337,23 @@ export default function CartItemCard({
         return (
           <VStack gap={1} align="start" mt={1}>
             {appliedTaxes.length > 0 && (
-              <Box className={css({ fontSize: 'xs' })}>
-                Tax:&nbsp;
-                {appliedTaxes.map((t) => `${t.name} (${t.percentage}%)`).join(', ')}
+              <Box
+                className={css({ fontSize: 'xs', display: 'flex', flexDir: 'column', gap: '1' })}
+              >
+                {appliedTaxes.map((t) => (
+                  <Box key={t.name}>
+                    {t.name} ({t.percentage}%)
+                  </Box>
+                ))}
               </Box>
             )}
             {appliedDiscounts.length > 0 && (
-              <Box className={css({ fontSize: 'xs' })}>
-                Discount:&nbsp;
-                {appliedDiscounts.map((d) => d.discount_name).join(', ')}
+              <Box
+                className={css({ fontSize: 'xs', display: 'flex', flexDir: 'column', gap: '1' })}
+              >
+                {appliedDiscounts.map((d) => (
+                  <Box key={d.discount_name}>{d.discount_name}</Box>
+                ))}
               </Box>
             )}
           </VStack>

@@ -13,6 +13,8 @@ interface CartItemCardProps {
   onRemove: () => void
   onToggleDiscount: (discount: Discount, checked: boolean) => void
   onToggleTaxRate: (tax: TaxRate, checked: boolean) => void
+  onExcludeOrderLevelDiscount: (discountName: string, excluded: boolean) => void
+  onExcludeOrderLevelTaxRate: (tax: TaxRate, excluded: boolean) => void
 }
 
 /**

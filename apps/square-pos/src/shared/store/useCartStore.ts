@@ -30,6 +30,9 @@ export type CartItem = {
   // new multi-select fields
   appliedDiscounts?: Discount[]
   appliedTaxRates?: TaxRate[]
+  // per-item opt-outs from order-level selections
+  excludedOrderDiscountNames?: string[]
+  excludedOrderTaxRates?: TaxRate[]
 }
 
 type CartState = {
@@ -45,6 +48,13 @@ type CartState = {
   // multi-select toggles
   toggleItemDiscount: (itemId: string, discount: Discount, enabled: boolean) => void
   toggleItemTaxRate: (itemId: string, taxRate: TaxRate, enabled: boolean) => void
+  // per-item opt-outs for order-level selections
+  excludeOrderLevelDiscountForItem: (
+    itemId: string,
+    discountName: string,
+    excluded: boolean,
+  ) => void
+  excludeOrderLevelTaxRateForItem: (itemId: string, taxRate: TaxRate, excluded: boolean) => void
   getOrderSummary: () => OrderSummary
 }
 
@@ -112,7 +122,7 @@ export const useCartStore = create<CartState>()(
 
           // Multi-discount support
           const effectiveDiscounts: Discount[] =
-            (item.appliedDiscounts && item.appliedDiscounts.length > 0)
+            item.appliedDiscounts && item.appliedDiscounts.length > 0
               ? item.appliedDiscounts
               : item.itemDiscount
                 ? [item.itemDiscount]
@@ -125,7 +135,9 @@ export const useCartStore = create<CartState>()(
           if (effectiveDiscounts.length > 0) {
             // BOGO first
             const hasBogo = effectiveDiscounts.some(
-              (d) => typeof d.discount_name === 'string' && d.discount_name.toLowerCase().includes('buy one get one'),
+              (d) =>
+                typeof d.discount_name === 'string' &&
+                d.discount_name.toLowerCase().includes('buy one get one'),
             )
             if (hasBogo && item.quantity >= 2) {
               const freeItems = Math.floor(item.quantity / 2)
@@ -133,9 +145,11 @@ export const useCartStore = create<CartState>()(
             }
             // Percentage discounts next (sum of percents on remaining subtotal)
             const percentSum = effectiveDiscounts
-              .map((d) => (typeof d.discount_value === 'string' && d.discount_value.includes('%')
-                ? Number.parseFloat(d.discount_value)
-                : undefined))
+              .map((d) =>
+                typeof d.discount_value === 'string' && d.discount_value.includes('%')
+                  ? Number.parseFloat(d.discount_value)
+                  : undefined,
+              )
               .filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
               .reduce((acc, v) => acc + v, 0)
             if (percentSum > 0) {
@@ -163,13 +177,17 @@ export const useCartStore = create<CartState>()(
 
           // Multi-tax support
           const effectiveTaxes: TaxRate[] =
-            (item.appliedTaxRates && item.appliedTaxRates.length > 0)
+            item.appliedTaxRates && item.appliedTaxRates.length > 0
               ? item.appliedTaxRates
               : item.is_taxable && item.itemTaxRate !== undefined
-                ? [{
-                    name: item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name || 'Tax',
-                    percentage: item.itemTaxRate,
-                  }]
+                ? [
+                    {
+                      name:
+                        item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name ||
+                        'Tax',
+                      percentage: item.itemTaxRate,
+                    },
+                  ]
                 : []
 
           appliedTaxRates.push(...effectiveTaxes)
@@ -178,7 +196,7 @@ export const useCartStore = create<CartState>()(
             const percentSum = effectiveTaxes
               .map((t) => (typeof t.percentage === 'number' ? t.percentage : Number(t.percentage)))
               .filter((v) => typeof v === 'number' && !Number.isNaN(v)) as number[]
-            const taxPercents = (percentSum as unknown as number[]) // satisfy linter with explicit grouping
+            const taxPercents = percentSum as unknown as number[] // satisfy linter with explicit grouping
             const totalPercent = taxPercents.reduce((acc: number, v: number) => acc + v, 0)
             itemTaxValue = (discountedSubtotal * totalPercent) / 100
           }
@@ -262,7 +280,8 @@ export const useCartStore = create<CartState>()(
             const toNumber = (p: string | number | null) =>
               typeof p === 'number' ? p : p ? Number(p) : Number.NaN
             const exists = current.some(
-              (t) => t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage),
+              (t) =>
+                t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage),
             )
             if (enabled && !exists) {
               return { ...item, appliedTaxRates: [...current, taxRate] }
@@ -271,7 +290,58 @@ export const useCartStore = create<CartState>()(
               return {
                 ...item,
                 appliedTaxRates: current.filter(
-                  (t) => !(t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage)),
+                  (t) =>
+                    !(
+                      t.name === taxRate.name &&
+                      toNumber(t.percentage) === toNumber(taxRate.percentage)
+                    ),
+                ),
+              }
+            }
+            return item
+          }),
+        })),
+      excludeOrderLevelDiscountForItem: (itemId: string, discountName: string, excluded: boolean) =>
+        set((state: CartState) => ({
+          items: state.items.map((item: CartItem) => {
+            if (item.id !== itemId) return item
+            const list = item.excludedOrderDiscountNames ?? []
+            const exists = list.includes(discountName)
+            if (excluded && !exists) {
+              return { ...item, excludedOrderDiscountNames: [...list, discountName] }
+            }
+            if (!excluded && exists) {
+              return {
+                ...item,
+                excludedOrderDiscountNames: list.filter((n) => n !== discountName),
+              }
+            }
+            return item
+          }),
+        })),
+      excludeOrderLevelTaxRateForItem: (itemId: string, taxRate: TaxRate, excluded: boolean) =>
+        set((state: CartState) => ({
+          items: state.items.map((item: CartItem) => {
+            if (item.id !== itemId) return item
+            const toNumber = (p: string | number | null) =>
+              typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+            const list = item.excludedOrderTaxRates ?? []
+            const exists = list.some(
+              (t) =>
+                t.name === taxRate.name && toNumber(t.percentage) === toNumber(taxRate.percentage),
+            )
+            if (excluded && !exists) {
+              return { ...item, excludedOrderTaxRates: [...list, taxRate] }
+            }
+            if (!excluded && exists) {
+              return {
+                ...item,
+                excludedOrderTaxRates: list.filter(
+                  (t) =>
+                    !(
+                      t.name === taxRate.name &&
+                      toNumber(t.percentage) === toNumber(taxRate.percentage)
+                    ),
                 ),
               }
             }

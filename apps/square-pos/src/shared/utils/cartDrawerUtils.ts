@@ -183,35 +183,118 @@ export function getDrawerOrderSummary({
     total: number
   }
 }) {
-  const itemSummary = getOrderSummary()
+  // Recompute per-item, applying order-level selections to each item unless excluded
+  let subtotal = 0
+  let discountAmount = 0
+  let taxAmount = 0
 
-  let subtotal = itemSummary.subtotal
-  let discountAmount = itemSummary.discountAmount
-  let taxAmount = itemSummary.taxAmount
+  const toNumber = (p: string | number | null) =>
+    typeof p === 'number' ? p : p ? Number(p) : Number.NaN
 
-  if (isOrderLevelActive) {
-    // Apply order-level discount on top of item-level subtotal
-    let orderDiscountAmount = 0
+  for (const item of items) {
+    const itemPrice = item.price ?? 0
+    const itemSubtotal = itemPrice * item.quantity
+
+    // Effective discounts for this item
+    const effectiveDiscounts: { discount_name: string; discount_value: string | number | null }[] =
+      []
+    if (item.appliedDiscounts && item.appliedDiscounts.length > 0) {
+      effectiveDiscounts.push(...item.appliedDiscounts)
+    } else if (item.itemDiscount) {
+      effectiveDiscounts.push(item.itemDiscount)
+    }
     if (selectedOrderDiscount) {
-      const percent = Number.parseFloat(selectedOrderDiscount.percentage)
-      if (!Number.isNaN(percent)) {
-        orderDiscountAmount = (subtotal * percent) / 100
+      const excluded = (item.excludedOrderDiscountNames ?? []).includes(selectedOrderDiscount.name)
+      if (!excluded) {
+        effectiveDiscounts.push({
+          discount_name: selectedOrderDiscount.name,
+          discount_value: `${selectedOrderDiscount.percentage}%`,
+        })
       }
     }
 
-    subtotal -= orderDiscountAmount
-    discountAmount += orderDiscountAmount
+    let itemDiscountValue = 0
+    if (effectiveDiscounts.length > 0) {
+      // BOGO
+      const hasBogo = effectiveDiscounts.some(
+        (d) =>
+          typeof d.discount_name === 'string' &&
+          d.discount_name.toLowerCase().includes('buy one get one'),
+      )
+      if (hasBogo && item.quantity >= 2) {
+        const freeItems = Math.floor(item.quantity / 2)
+        itemDiscountValue += freeItems * itemPrice
+      }
+      // Percentage discounts
+      const percentSum = effectiveDiscounts
+        .map((d) =>
+          typeof d.discount_value === 'string' && d.discount_value.includes('%')
+            ? Number.parseFloat(d.discount_value)
+            : undefined,
+        )
+        .filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
+        .reduce((acc, v) => acc + v, 0)
+      if (percentSum > 0) {
+        const remainingAfterBogo = Math.max(itemSubtotal - itemDiscountValue, 0)
+        itemDiscountValue += (remainingAfterBogo * percentSum) / 100
+      }
+      // Fixed amounts
+      const fixedSumPerUnit = effectiveDiscounts
+        .map((d) => {
+          if (typeof d.discount_value === 'number') return d.discount_value
+          if (typeof d.discount_value === 'string' && !d.discount_value.includes('%')) {
+            const num = Number.parseFloat(d.discount_value)
+            return Number.isNaN(num) ? 0 : num
+          }
+          return 0
+        })
+        .reduce((acc, v) => acc + v, 0)
+      if (fixedSumPerUnit > 0) {
+        itemDiscountValue += fixedSumPerUnit * item.quantity
+      }
+    }
 
-    // Apply order-level tax on top of already discounted subtotal
-    let orderTaxAmount = 0
+    const discountedSubtotal = Math.max(itemSubtotal - itemDiscountValue, 0)
+    discountAmount += itemDiscountValue
+
+    // Effective taxes for this item
+    const effectiveTaxes: { name: string; percentage: string | number | null }[] = []
+    if (item.appliedTaxRates && item.appliedTaxRates.length > 0) {
+      effectiveTaxes.push(...item.appliedTaxRates)
+    } else if (item.is_taxable && item.itemTaxRate !== undefined) {
+      effectiveTaxes.push({
+        name: item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name || 'Tax',
+        percentage: item.itemTaxRate,
+      })
+    }
     if (selectedOrderTax) {
-      const percent = Number.parseFloat(selectedOrderTax.percentage)
-      if (!Number.isNaN(percent)) {
-        orderTaxAmount = (subtotal * percent) / 100
+      const excluded = (item.excludedOrderTaxRates ?? []).some(
+        (t) =>
+          t.name === selectedOrderTax.name &&
+          toNumber(t.percentage) === toNumber(selectedOrderTax.percentage),
+      )
+      if (!excluded) {
+        effectiveTaxes.push({
+          name: selectedOrderTax.name,
+          percentage: selectedOrderTax.percentage,
+        })
       }
     }
 
-    taxAmount += orderTaxAmount
+    let itemTaxValue = 0
+    if (effectiveTaxes.length > 0) {
+      const percentSum = effectiveTaxes
+        .map((t) => (typeof t.percentage === 'number' ? t.percentage : Number(t.percentage)))
+        .filter((v) => typeof v === 'number' && !Number.isNaN(v)) as number[]
+      const totalPercent = (percentSum as unknown as number[]).reduce(
+        (acc: number, v: number) => acc + v,
+        0,
+      )
+      itemTaxValue = (discountedSubtotal * totalPercent) / 100
+    }
+
+    taxAmount += itemTaxValue
+    subtotal += discountedSubtotal
   }
 
   const total = subtotal + taxAmount

@@ -4,9 +4,11 @@
 
 import { ButtonVariant } from '@/components/primitives/derived/ButtonVariant'
 import { Badge } from '@/components/primitives/ui/badge'
+import { Button } from '@/components/primitives/ui/button'
+import { Checkbox } from '@/components/primitives/ui/checkbox'
 import Drawer from '@/components/primitives/ui/drawer'
 import { Label } from '@/components/primitives/ui/label'
-import Select from '@/components/primitives/ui/select'
+import Modal from '@/components/primitives/ui/modal/modal'
 import { OrderSummaryContainer } from '@/containers/order/OrderSummaryContainer'
 import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
 import { useCartStore } from '@/shared/store/useCartStore'
@@ -57,10 +59,17 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const setItemTaxRate = useCartStore((state) => state.setItemTaxRate)
   const toggleItemDiscount = useCartStore((state) => state.toggleItemDiscount)
   const toggleItemTaxRate = useCartStore((state) => state.toggleItemTaxRate)
+  const excludeOrderLevelDiscountForItem = useCartStore(
+    (state) => state.excludeOrderLevelDiscountForItem,
+  )
+  const excludeOrderLevelTaxRateForItem = useCartStore(
+    (state) => state.excludeOrderLevelTaxRateForItem,
+  )
 
   const [open, setOpen] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [orderOptionsOpen, setOrderOptionsOpen] = useState(false)
 
   // * store selected discount per item
   const [selectedDiscounts, setSelectedDiscounts] = useState<Record<string, SelectedDiscount>>({})
@@ -150,6 +159,12 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                       onToggleTaxRate={(tax, checked) => {
                         toggleItemTaxRate(item.id, tax, checked)
                       }}
+                      onExcludeOrderLevelDiscount={(discountName, excluded) =>
+                        excludeOrderLevelDiscountForItem(item.id, discountName, excluded)
+                      }
+                      onExcludeOrderLevelTaxRate={(tax, excluded) =>
+                        excludeOrderLevelTaxRateForItem(item.id, tax, excluded)
+                      }
                     />
                   )
                 })}
@@ -159,125 +174,132 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
             <Box className={summaryContainerStyle}>
               {items.length > 0 && (
                 <Box className={summaryBoxStyle}>
-                  {/* Order-level discount/tax controls */}
-                  <Label htmlFor="order-discount" className={labelStyle}>
-                    Order Discount:
-                  </Label>
-                  <Select.Root
-                    size="sm"
-                    value={selectedOrderDiscount?.name || ''}
-                    onValueChange={(value) => {
-                      const discount = ORDER_LEVEL_DISCOUNTS.find((d) => d.name === value) || null
-                      handleOrderLevelChange({
-                        type: 'discount',
-                        value: discount as SelectedOrderDiscount,
-                        setSelectedOrderDiscount,
-                        setSelectedOrderTax,
-                        items,
-                      })
-                    }}
-                  >
-                    <Select.Trigger className={css({ fontSize: 'xs' })}>
-                      <Select.Value placeholder="Select Discount" />
-                    </Select.Trigger>
-                    <Select.Content
-                      position="popper"
-                      sideOffset={5}
+                  {/* Order-level discount/tax controls via modal */}
+
+                  <Modal.Root open={orderOptionsOpen} onOpenChange={setOrderOptionsOpen}>
+                    <Modal.Trigger>
+                      <Button size="sm" variant="outlined" width="full">
+                        Order Discounts/Taxes
+                      </Button>
+                    </Modal.Trigger>
+                    <Modal.Content
                       className={css({
+                        width: { base: '90vw', sm: '80vw', md: '40vw' },
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
                         zIndex: 1000,
-                        fontSize: 'xs',
                       })}
                     >
-                      <Select.Group>
-                        <Select.Label>Discounts</Select.Label>
-                        {ORDER_LEVEL_DISCOUNTS.map((discount) => (
-                          <Select.Item
-                            key={discount.name}
-                            value={discount.name}
-                            className={css({ fontSize: 'xs' })}
-                          >
-                            {discount.name} ({discount.percentage}%)
-                          </Select.Item>
-                        ))}
-                        <Select.Item
-                          key="none"
-                          value="none"
-                          className={css({ fontSize: 'xs', color: 'gray.500' })}
-                        >
-                          Remove Discount
-                        </Select.Item>
-                      </Select.Group>
-                    </Select.Content>
-                  </Select.Root>
-
-                  <Label htmlFor="order-tax" className={labelStyle}>
-                    Order Tax:
-                  </Label>
-                  <Select.Root
-                    size="sm"
-                    value={selectedOrderTax?.name || ''}
-                    onValueChange={(value) => {
-                      const tax = ORDER_LEVEL_TAXES.find((t) => t.name === value) || null
-                      handleOrderLevelChange({
-                        type: 'tax',
-                        value: tax,
-                        setSelectedOrderDiscount,
-                        setSelectedOrderTax,
-                        items,
-                      })
-                    }}
-                  >
-                    <Select.Trigger className={css({ fontSize: 'xs' })}>
-                      <Select.Value placeholder="Select Tax" />
-                    </Select.Trigger>
-                    <Select.Content
-                      position="popper"
-                      sideOffset={5}
-                      className={css({
-                        zIndex: 1000,
-                        fontSize: 'xs',
-                      })}
-                    >
-                      <Select.Group>
-                        <Select.Label>Taxes</Select.Label>
-
-                        {ORDER_LEVEL_TAXES.map((tax) => (
-                          <Select.Item
-                            key={tax.name}
-                            value={tax.name}
-                            className={css({ fontSize: 'xs' })}
-                          >
-                            {tax.name} ({tax.percentage}%)
-                          </Select.Item>
-                        ))}
-                        <Select.Item
-                          key="none"
-                          value="none"
-                          className={css({ fontSize: 'xs', color: 'gray.500' })}
-                        >
-                          Remove Tax
-                        </Select.Item>
-                      </Select.Group>
-                    </Select.Content>
-                  </Select.Root>
-
-                  {/* Show order-level discount/tax if active */}
-                  {!!selectedOrderDiscount || !!selectedOrderTax ? (
-                    <Box className={orderLevelInfoStyle}>
-                      {selectedOrderDiscount && (
+                      <Modal.Header>
+                        <Modal.Title>Order-level discounts and taxes</Modal.Title>
+                        <Modal.Description>
+                          Apply a discount or tax to the entire order. You can opt out per item from
+                          each card.
+                        </Modal.Description>
+                      </Modal.Header>
+                      <Box className={css({ display: 'flex', flexDir: 'column', gap: '3' })}>
+                        {/* Discounts */}
                         <Box>
-                          <b>Order Discount:</b> {selectedOrderDiscount.name} (-
-                          {selectedOrderDiscount.percentage}%)
+                          <Label className={labelStyle}>Order Discounts</Label>
+                          <Box
+                            className={css({
+                              mt: '2',
+                              display: 'flex',
+                              flexDir: 'column',
+                              gap: '2',
+                            })}
+                          >
+                            {ORDER_LEVEL_DISCOUNTS.map((discount) => {
+                              const checked = selectedOrderDiscount?.name === discount.name
+                              return (
+                                <Label
+                                  key={discount.name}
+                                  htmlFor={`order-discount-${discount.name}`}
+                                  className={css({
+                                    fontSize: 'xs',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2',
+                                  })}
+                                >
+                                  <Checkbox
+                                    id={`order-discount-${discount.name}`}
+                                    size="sm"
+                                    checked={checked}
+                                    onCheckedChange={(c) => {
+                                      const next = c ? discount : null
+                                      handleOrderLevelChange({
+                                        type: 'discount',
+                                        value: next as SelectedOrderDiscount,
+                                        setSelectedOrderDiscount,
+                                        setSelectedOrderTax,
+                                        items,
+                                      })
+                                    }}
+                                  />
+                                  {discount.name}
+                                </Label>
+                              )
+                            })}
+                          </Box>
                         </Box>
-                      )}
-                      {selectedOrderTax && (
+                        {/* Taxes */}
                         <Box>
-                          <b>Order Tax:</b> {selectedOrderTax.name} (+
-                          {selectedOrderTax.percentage}%)
+                          <Label className={labelStyle}>Order Taxes</Label>
+                          <Box
+                            className={css({
+                              mt: '2',
+                              display: 'flex',
+                              flexDir: 'column',
+                              gap: '2',
+                            })}
+                          >
+                            {ORDER_LEVEL_TAXES.map((tax) => {
+                              const checked = selectedOrderTax?.name === tax.name
+                              return (
+                                <Label
+                                  key={tax.name}
+                                  htmlFor={`order-tax-${tax.name}`}
+                                  className={css({
+                                    fontSize: 'xs',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '2',
+                                  })}
+                                >
+                                  <Checkbox
+                                    id={`order-tax-${tax.name}`}
+                                    size="sm"
+                                    checked={checked}
+                                    onCheckedChange={(c) => {
+                                      const next = c ? tax : null
+                                      handleOrderLevelChange({
+                                        type: 'tax',
+                                        value: next as SelectedOrderTax,
+                                        setSelectedOrderDiscount,
+                                        setSelectedOrderTax,
+                                        items,
+                                      })
+                                    }}
+                                  />
+                                  {tax.name} ({tax.percentage}%)
+                                </Label>
+                              )
+                            })}
+                          </Box>
                         </Box>
-                      )}
-                    </Box>
-                  ) : null}
+                      </Box>
+                      <Modal.Footer>
+                        <Modal.Cancel>Cancel</Modal.Cancel>
+                        <Modal.Action asChild>
+                          <Button onClick={() => setOrderOptionsOpen(false)}>Done</Button>
+                        </Modal.Action>
+                      </Modal.Footer>
+                    </Modal.Content>
+                  </Modal.Root>
+
                   <Box className={totalTextStyle}>
                     Total: ${(drawerOrderSummary.total / 100).toFixed(2)}
                   </Box>
@@ -317,6 +339,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
           />
         )}
       </Drawer.Content>
+      {/* Order-level options modal */}
     </Drawer.Root>
   )
 }
