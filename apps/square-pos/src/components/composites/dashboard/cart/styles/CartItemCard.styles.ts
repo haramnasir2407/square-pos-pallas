@@ -81,6 +81,7 @@ export const taxLabel = css({
   display: 'flex',
   alignItems: 'center',
   gap: '1',
+  fontWeight: 'semibold',
 })
 
 export const taxCheckbox = css({ mr: '1' })
@@ -91,6 +92,7 @@ export const discountLabel = css({
   display: 'flex',
   alignItems: 'center',
   gap: '1',
+  fontWeight: 'semibold',
 })
 
 export const discountCheckbox = css({ mr: '1' })

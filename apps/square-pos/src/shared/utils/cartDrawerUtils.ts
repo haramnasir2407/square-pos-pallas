@@ -164,15 +164,11 @@ export function handleOrderLevelChange({
 
 // Utility: Calculates the order summary for the drawer, considering order-level discounts/taxes if selected.
 export function getDrawerOrderSummary({
-  isOrderLevelActive,
-  isItemLevelActive,
   items,
   selectedOrderDiscount,
   selectedOrderTax,
   getOrderSummary,
 }: {
-  isOrderLevelActive: boolean
-  isItemLevelActive: boolean
   items: CartItem[]
   selectedOrderDiscount: SelectedOrderDiscount | null
   selectedOrderTax: SelectedOrderTax | null

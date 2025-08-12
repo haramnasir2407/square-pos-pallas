@@ -6,7 +6,6 @@ import { Checkbox } from '@/components/primitives/ui/checkbox'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
 import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
-// removed Select dropdown in favor of checkbox lists
 import type { Discount, TaxRate } from '@/shared/store/useCartStore'
 import Image from 'next/image'
 import { useState } from 'react'
@@ -23,7 +22,6 @@ import {
   itemInfo,
   itemName,
   itemPrice,
-  itemStock,
   optionsContainer,
   qtyButton,
   qtyButtonDisabled,
@@ -32,12 +30,10 @@ import {
   removeButton,
   taxCheckbox,
   taxLabel,
-  taxRow,
 } from './styles/CartItemCard.styles'
 
 export default function CartItemCard({
   item,
-  inventory,
   atMaxQty,
   discounts,
   taxes,
@@ -51,6 +47,7 @@ export default function CartItemCard({
   onExcludeOrderLevelTaxRate,
 }: CartItemCardProps) {
   const [open, setOpen] = useState(false)
+
   // Normalize order-level to item-level shapes for display/merge
   const orderLevelTaxAsTaxRate: TaxRate | null = orderLevelTax
     ? { name: orderLevelTax.name, percentage: orderLevelTax.percentage }
@@ -64,7 +61,8 @@ export default function CartItemCard({
 
   const toNumber = (p: string | number | null) =>
     typeof p === 'number' ? p : p ? Number(p) : Number.NaN
-  const mergeUniqueTaxes = (list: TaxRate[], extras: TaxRate[]) => {
+
+  const mergeTaxes = (list: TaxRate[], extras: TaxRate[]) => {
     const base = [...list]
     for (const extra of extras) {
       const exists = base.some(
@@ -74,7 +72,8 @@ export default function CartItemCard({
     }
     return base
   }
-  const mergeUniqueDiscounts = (list: Discount[], extras: Discount[]) => {
+
+  const mergeDiscounts = (list: Discount[], extras: Discount[]) => {
     const base = [...list]
     for (const extra of extras) {
       const exists = base.some((d) => d.discount_name === extra.discount_name)
@@ -83,17 +82,17 @@ export default function CartItemCard({
     return base
   }
 
-  const orderLevelTaxesAll: TaxRate[] = ORDER_LEVEL_TAXES.map((t) => ({
+  const orderLevelTaxes: TaxRate[] = ORDER_LEVEL_TAXES.map((t) => ({
     name: t.name,
     percentage: t.percentage,
   }))
-  const orderLevelDiscountsAll: Discount[] = ORDER_LEVEL_DISCOUNTS.map((d) => ({
+  const orderLevelDiscounts: Discount[] = ORDER_LEVEL_DISCOUNTS.map((d) => ({
     discount_name: d.name,
     discount_value: `${d.percentage}%`,
   }))
 
-  const taxesForList = mergeUniqueTaxes(taxes, orderLevelTaxesAll)
-  const discountsForList = mergeUniqueDiscounts(discounts, orderLevelDiscountsAll)
+  const itemTaxes = mergeTaxes(taxes, orderLevelTaxes)
+  const itemDiscounts = mergeDiscounts(discounts, orderLevelDiscounts)
 
   return (
     <Flex
@@ -169,10 +168,10 @@ export default function CartItemCard({
               </Modal.Header>
               <Flex direction="column" gap="gap.component.sm" className={optionsContainer}>
                 {/* Tax */}
-                {taxesForList.length > 0 && (
+                {itemTaxes.length > 0 && (
                   <Flex direction="column" gap="2">
                     <Label className={taxLabel}>Apply Taxes</Label>
-                    {taxesForList.map((tax) => {
+                    {itemTaxes.map((tax) => {
                       const isOrderLevel =
                         !!orderLevelTaxAsTaxRate &&
                         tax.name === orderLevelTaxAsTaxRate.name &&
@@ -221,10 +220,10 @@ export default function CartItemCard({
                   </Flex>
                 )}
                 {/* Discount */}
-                {discountsForList.length > 0 && (
+                {itemDiscounts.length > 0 && (
                   <Flex direction="column" gap="2">
                     <Label className={discountLabel}>Apply Discounts</Label>
-                    {discountsForList.map((discount) => {
+                    {itemDiscounts.map((discount) => {
                       const isOrderLevel =
                         !!orderLevelDiscountAsDiscount &&
                         discount.discount_name === orderLevelDiscountAsDiscount.discount_name
@@ -262,7 +261,7 @@ export default function CartItemCard({
                                   !(checked as boolean),
                                 )
                               } else {
-                                onToggleDiscount(discount as Discount, checked as boolean)
+                                onToggleDiscount(discount, checked as boolean)
                               }
                             }}
                           />
@@ -290,13 +289,13 @@ export default function CartItemCard({
         if (item.appliedTaxRates && item.appliedTaxRates.length > 0) {
           appliedTaxes.push(...item.appliedTaxRates)
         } else if (item.is_taxable && item.itemTaxRate !== undefined) {
-          const legacy = {
+          const taxes = {
             name:
               item.taxes?.find((t: TaxRate) => Number(t.percentage) === item.itemTaxRate)?.name ||
               'Tax',
             percentage: item.itemTaxRate,
           }
-          appliedTaxes.push(legacy)
+          appliedTaxes.push(taxes)
         }
         if (orderLevelTaxAsTaxRate) {
           const isExcluded = (item.excludedOrderTaxRates ?? []).some(

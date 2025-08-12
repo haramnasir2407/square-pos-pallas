@@ -51,12 +51,8 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const items = useCartStore((state) => state.items)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const removeItem = useCartStore((state) => state.removeItem)
-  const toggleItemTax = useCartStore((state) => state.toggleItemTax)
   const getOrderSummary = useCartStore((state) => state.getOrderSummary)
   const clearCart = useCartStore((state) => state.clearCart)
-  const applyItemDiscount = useCartStore((state) => state.applyItemDiscount)
-  const removeItemDiscount = useCartStore((state) => state.removeItemDiscount)
-  const setItemTaxRate = useCartStore((state) => state.setItemTaxRate)
   const toggleItemDiscount = useCartStore((state) => state.toggleItemDiscount)
   const toggleItemTaxRate = useCartStore((state) => state.toggleItemTaxRate)
   const excludeOrderLevelDiscountForItem = useCartStore(
@@ -71,10 +67,6 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [orderOptionsOpen, setOrderOptionsOpen] = useState(false)
 
-  // * store selected discount per item
-  const [selectedDiscounts, setSelectedDiscounts] = useState<Record<string, SelectedDiscount>>({})
-  // * store selected taxes per item
-  const [selectedTaxes, setSelectedTaxes] = useState<Record<string, SelectedTax>>({})
   // * store selected order-level discount/tax
   const [selectedOrderDiscount, setSelectedOrderDiscount] = useState<SelectedOrderDiscount | null>(
     null,
@@ -82,8 +74,6 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const [selectedOrderTax, setSelectedOrderTax] = useState<SelectedOrderTax | null>(null)
 
   const drawerOrderSummary = getDrawerOrderSummary({
-    isOrderLevelActive: !!selectedOrderDiscount || !!selectedOrderTax,
-    isItemLevelActive: !!selectedDiscounts || !!selectedTaxes,
     items,
     selectedOrderDiscount,
     selectedOrderTax,
@@ -177,7 +167,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                   {/* Order-level discount/tax controls via modal */}
 
                   <Modal.Root open={orderOptionsOpen} onOpenChange={setOrderOptionsOpen}>
-                    <Modal.Trigger>
+                    <Modal.Trigger asChild>
                       <Button size="sm" variant="outlined" width="full">
                         Order Discounts/Taxes
                       </Button>
@@ -229,10 +219,10 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                     size="sm"
                                     checked={checked}
                                     onCheckedChange={(c) => {
-                                      const next = c ? discount : null
+                                      const orderDiscount = c ? discount : null
                                       handleOrderLevelChange({
                                         type: 'discount',
-                                        value: next as SelectedOrderDiscount,
+                                        value: orderDiscount as SelectedOrderDiscount,
                                         setSelectedOrderDiscount,
                                         setSelectedOrderTax,
                                         items,
@@ -274,10 +264,10 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                     size="sm"
                                     checked={checked}
                                     onCheckedChange={(c) => {
-                                      const next = c ? tax : null
+                                      const orderTax = c ? tax : null
                                       handleOrderLevelChange({
                                         type: 'tax',
-                                        value: next as SelectedOrderTax,
+                                        value: orderTax as SelectedOrderTax,
                                         setSelectedOrderDiscount,
                                         setSelectedOrderTax,
                                         items,

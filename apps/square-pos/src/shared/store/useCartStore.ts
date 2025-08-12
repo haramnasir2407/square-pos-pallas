@@ -133,17 +133,6 @@ export const useCartStore = create<CartState>()(
 
           // Calculate combined discount value
           if (effectiveDiscounts.length > 0) {
-            // BOGO first
-            const hasBogo = effectiveDiscounts.some(
-              (d) =>
-                typeof d.discount_name === 'string' &&
-                d.discount_name.toLowerCase().includes('buy one get one'),
-            )
-            if (hasBogo && item.quantity >= 2) {
-              const freeItems = Math.floor(item.quantity / 2)
-              itemDiscountValue += freeItems * itemPrice
-            }
-            // Percentage discounts next (sum of percents on remaining subtotal)
             const percentSum = effectiveDiscounts
               .map((d) =>
                 typeof d.discount_value === 'string' && d.discount_value.includes('%')
