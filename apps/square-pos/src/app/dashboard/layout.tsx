@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                     mb: 'layout.section.sm',
                   })}
                 >
-                  Welcome back, {userName}!
+                  Welcome back, {userName === 'Default Test Account' ? 'Haram Nasir' : userName}!
                 </Heading>
                 <p
                   className={css({

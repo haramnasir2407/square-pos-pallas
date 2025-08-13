@@ -13,7 +13,7 @@ import { FaTrash } from 'react-icons/fa6'
 import { FiMinus } from 'react-icons/fi'
 import { GoPlus } from 'react-icons/go'
 import { css } from '~/styled-system/css'
-import { Box, Flex, VStack } from '~/styled-system/jsx'
+import { Box, Flex, HStack, VStack } from '~/styled-system/jsx'
 import {
   cardContainer,
   discountCheckbox,
@@ -167,58 +167,6 @@ export default function CartItemCard({
                 </Modal.Description>
               </Modal.Header>
               <Flex direction="column" gap="gap.component.sm" className={optionsContainer}>
-                {/* Tax */}
-                {itemTaxes.length > 0 && (
-                  <Flex direction="column" gap="2">
-                    <Label className={taxLabel}>Apply Taxes</Label>
-                    {itemTaxes.map((tax) => {
-                      const isOrderLevel =
-                        !!orderLevelTaxAsTaxRate &&
-                        tax.name === orderLevelTaxAsTaxRate.name &&
-                        toNumber(tax.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage)
-                      const isExcluded = (item.excludedOrderTaxRates ?? []).some(
-                        (t: TaxRate) =>
-                          t.name === tax.name &&
-                          toNumber(t.percentage) === toNumber(tax.percentage),
-                      )
-                      const isSelected =
-                        isOrderLevel ||
-                        (item.appliedTaxRates ?? []).some(
-                          (t: TaxRate) =>
-                            t.name === tax.name &&
-                            toNumber(t.percentage) === toNumber(tax.percentage),
-                        )
-                      return (
-                        <Label
-                          htmlFor={tax.name}
-                          key={tax.name}
-                          className={css({
-                            fontSize: 'xs',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '2',
-                          })}
-                        >
-                          <Checkbox
-                            id={tax.name}
-                            size="sm"
-                            className={taxCheckbox}
-                            checked={isOrderLevel ? !isExcluded : isSelected}
-                            onCheckedChange={(checked) => {
-                              if (isOrderLevel) {
-                                // toggle exclusion for this item only
-                                onExcludeOrderLevelTaxRate(tax, !(checked as boolean))
-                              } else {
-                                onToggleTaxRate(tax, checked as boolean)
-                              }
-                            }}
-                          />
-                          {tax.name} ({tax.percentage}%)
-                        </Label>
-                      )
-                    })}
-                  </Flex>
-                )}
                 {/* Discount */}
                 {itemDiscounts.length > 0 && (
                   <Flex direction="column" gap="2">
@@ -266,6 +214,58 @@ export default function CartItemCard({
                             }}
                           />
                           {discount.discount_name}
+                        </Label>
+                      )
+                    })}
+                  </Flex>
+                )}
+                {/* Tax */}
+                {itemTaxes.length > 0 && (
+                  <Flex direction="column" gap="2">
+                    <Label className={taxLabel}>Apply Taxes</Label>
+                    {itemTaxes.map((tax) => {
+                      const isOrderLevel =
+                        !!orderLevelTaxAsTaxRate &&
+                        tax.name === orderLevelTaxAsTaxRate.name &&
+                        toNumber(tax.percentage) === toNumber(orderLevelTaxAsTaxRate.percentage)
+                      const isExcluded = (item.excludedOrderTaxRates ?? []).some(
+                        (t: TaxRate) =>
+                          t.name === tax.name &&
+                          toNumber(t.percentage) === toNumber(tax.percentage),
+                      )
+                      const isSelected =
+                        isOrderLevel ||
+                        (item.appliedTaxRates ?? []).some(
+                          (t: TaxRate) =>
+                            t.name === tax.name &&
+                            toNumber(t.percentage) === toNumber(tax.percentage),
+                        )
+                      return (
+                        <Label
+                          htmlFor={tax.name}
+                          key={tax.name}
+                          className={css({
+                            fontSize: 'xs',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2',
+                          })}
+                        >
+                          <Checkbox
+                            id={tax.name}
+                            size="sm"
+                            className={taxCheckbox}
+                            checked={isOrderLevel ? !isExcluded : isSelected}
+                            onCheckedChange={(checked) => {
+                              if (isOrderLevel) {
+                                // toggle exclusion for this item only
+                                onExcludeOrderLevelTaxRate(tax, !(checked as boolean))
+                              } else {
+                                onToggleTaxRate(tax, checked as boolean)
+                              }
+                            }}
+                          />
+                          {tax.name} ({tax.percentage}%)
                         </Label>
                       )
                     })}
@@ -331,28 +331,31 @@ export default function CartItemCard({
           }
         }
 
-        if (appliedTaxes.length === 0 && appliedDiscounts.length === 0) return null
+        // Hide BOGO in display when quantity < 2
+        const isBogo = (d: Discount) =>
+          typeof d.discount_name === 'string' &&
+          d.discount_name.toLowerCase().includes('buy one get one free')
+        const displayDiscounts: Discount[] =
+          item.quantity >= 2 ? appliedDiscounts : appliedDiscounts.filter((d) => !isBogo(d))
+
+        if (appliedTaxes.length === 0 && displayDiscounts.length === 0) return null
 
         return (
-          <VStack gap={1} align="start" mt={1}>
-            {appliedTaxes.length > 0 && (
-              <Box
-                className={css({ fontSize: 'xs', display: 'flex', flexDir: 'column', gap: '1' })}
-              >
-                {appliedTaxes.map((t) => (
-                  <Box key={t.name}>
-                    {t.name} ({t.percentage}%)
-                  </Box>
-                ))}
+          <VStack gap={2} align="start" mt={1} justify="space-between" w="full">
+            {displayDiscounts.length > 0 && (
+              <Box className={css({ fontSize: 'xs' })}>
+                <span className={css({ fontWeight: 'semibold', whiteSpace: 'nowrap' })}>
+                  Applied discounts:
+                </span>{' '}
+                {displayDiscounts.map((d) => d.discount_name).join(', ')}
               </Box>
             )}
-            {appliedDiscounts.length > 0 && (
-              <Box
-                className={css({ fontSize: 'xs', display: 'flex', flexDir: 'column', gap: '1' })}
-              >
-                {appliedDiscounts.map((d) => (
-                  <Box key={d.discount_name}>{d.discount_name}</Box>
-                ))}
+            {appliedTaxes.length > 0 && (
+              <Box className={css({ fontSize: 'xs' })}>
+                <span className={css({ fontWeight: 'semibold', whiteSpace: 'nowrap' })}>
+                  Applied taxes:
+                </span>{' '}
+                {appliedTaxes.map((t) => `${t.name} (${t.percentage}%)`).join(', ')}
               </Box>
             )}
           </VStack>

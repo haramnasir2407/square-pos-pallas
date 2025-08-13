@@ -212,17 +212,19 @@ export function getDrawerOrderSummary({
     let itemDiscountValue = 0
     if (effectiveDiscounts.length > 0) {
       // BOGO
-      const hasBogo = effectiveDiscounts.some(
-        (d) =>
-          typeof d.discount_name === 'string' &&
-          d.discount_name.toLowerCase().includes('buy one get one'),
-      )
+      const isBogo = (d: { discount_name: string | undefined }) =>
+        typeof d.discount_name === 'string' &&
+        d.discount_name.toLowerCase().includes('buy one get one free')
+
+      const hasBogo = effectiveDiscounts.some(isBogo)
       if (hasBogo && item.quantity >= 2) {
         const freeItems = Math.floor(item.quantity / 2)
         itemDiscountValue += freeItems * itemPrice
       }
-      // Percentage discounts
+
+      // Percentage discounts (exclude BOGO from percentage aggregation)
       const percentSum = effectiveDiscounts
+        .filter((d) => !isBogo(d as { discount_name: string | undefined }))
         .map((d) =>
           typeof d.discount_value === 'string' && d.discount_value.includes('%')
             ? Number.parseFloat(d.discount_value)
