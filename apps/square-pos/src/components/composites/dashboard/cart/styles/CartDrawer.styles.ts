@@ -68,7 +68,6 @@ export const summaryBoxStyle = css({
   borderRadius: 'lg',
   px: { base: 'padding.inline.sm', md: 'padding.inline.md' },
   py: { base: 'padding.block.sm', md: 'padding.block.md' },
-  // mb: 'layout.internal.sm',
   display: 'flex',
   flexDirection: 'column',
   gap: 'gap.component.sm',

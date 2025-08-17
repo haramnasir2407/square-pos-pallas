@@ -12,7 +12,7 @@ import { FaTrash } from 'react-icons/fa6'
 import { FiMinus } from 'react-icons/fi'
 import { GoPlus } from 'react-icons/go'
 import { css } from '~/styled-system/css'
-import { Box, Flex, HStack, VStack } from '~/styled-system/jsx'
+import { Box, Flex, VStack } from '~/styled-system/jsx'
 import {
   cardContainer,
   discountCheckbox,
@@ -149,6 +149,7 @@ export default function CartItemCard({
                   <Flex direction="column" gap="2">
                     <Label className={discountLabel}>Apply Discounts</Label>
                     {itemDiscounts.map((discount) => {
+                      const inputId = `${item.id}-discount-${discount.discount_id}`
                       const isOrderLevel =
                         !!orderLevelDiscountAsDiscount &&
                         discount.discount_name === orderLevelDiscountAsDiscount.discount_name
@@ -164,8 +165,8 @@ export default function CartItemCard({
                           item.itemDiscount.discount_name === discount.discount_name)
                       return (
                         <Label
-                          htmlFor={discount.discount_name}
-                          key={discount.discount_name}
+                          htmlFor={inputId}
+                          key={discount.discount_id}
                           className={css({
                             fontSize: 'xs',
                             display: 'flex',
@@ -174,7 +175,7 @@ export default function CartItemCard({
                           })}
                         >
                           <Checkbox
-                            id={discount.discount_name}
+                            id={inputId}
                             size="sm"
                             className={discountCheckbox}
                             checked={isOrderLevel ? !isExcluded : isSelected}
@@ -201,6 +202,7 @@ export default function CartItemCard({
                   <Flex direction="column" gap="2">
                     <Label className={taxLabel}>Apply Taxes</Label>
                     {itemTaxes.map((tax) => {
+                      const inputId = `${item.id}-tax-${tax.tax_id}`
                       const isOrderLevel =
                         !!orderLevelTaxAsTaxRate &&
                         tax.name === orderLevelTaxAsTaxRate.name &&
@@ -219,8 +221,8 @@ export default function CartItemCard({
                         )
                       return (
                         <Label
-                          htmlFor={tax.name}
-                          key={tax.name}
+                          htmlFor={inputId}
+                          key={tax.tax_id}
                           className={css({
                             fontSize: 'xs',
                             display: 'flex',
@@ -229,7 +231,7 @@ export default function CartItemCard({
                           })}
                         >
                           <Checkbox
-                            id={tax.name}
+                            id={inputId}
                             size="sm"
                             className={taxCheckbox}
                             checked={isOrderLevel ? !isExcluded : isSelected}
@@ -297,7 +299,7 @@ export default function CartItemCard({
               (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
             )
             if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
-              // console.log('applied discounts:', appliedDiscounts)
+            // console.log('applied discounts:', appliedDiscounts)
           }
         }
 

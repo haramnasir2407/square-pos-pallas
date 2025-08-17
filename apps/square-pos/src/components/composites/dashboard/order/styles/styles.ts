@@ -119,7 +119,7 @@ export const itemFinalStyle = css({
 })
 
 export const orderSummarySectionStyle = css({
-  mt: 'gap.component.sm',
+  // mt: 'gap.component.sm',
   borderTop: '1px solid #eee',
   pt: 'gap.component.md',
 })

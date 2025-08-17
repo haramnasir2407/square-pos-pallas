@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import type { CategoryObject, ParamsType } from '@/shared/types/catalog'
 import {
   buildCategoryFilterParams,
   clearSelectedCategories,
   toggleCategory,
 } from '@/shared/utils/filterUtils'
+import { useState } from 'react'
 
 export const useFilterDrawer = ({
   prevParams,

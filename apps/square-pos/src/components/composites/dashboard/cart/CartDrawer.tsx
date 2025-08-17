@@ -212,7 +212,14 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                   {/* Order-level discount/tax controls via modal */}
                   <Modal.Root open={orderOptionsOpen} onOpenChange={setOrderOptionsOpen}>
                     <Modal.Trigger asChild>
-                      <Button size="sm" variant="outlined" width="full">
+                      <Button
+                        size="sm"
+                        variant="outlined"
+                        width="full"
+                        className={css({
+                          fontSize: 'xs',
+                        })}
+                      >
                         Order Discounts/Taxes
                       </Button>
                     </Modal.Trigger>
