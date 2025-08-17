@@ -12,8 +12,15 @@ export const OrderSummaryContainer = ({
   setShowCheckout,
   setShowConfirmation,
   showConfirmation,
+  selectedOrderDiscount = null,
+  selectedOrderTax = null,
 }: OrderSummaryProps) => {
-  const { orderPreview, isLoading, error } = useOrderSummary(items, accessToken)
+  const { orderPreview, isLoading, error } = useOrderSummary(
+    items,
+    selectedOrderDiscount,
+    selectedOrderTax,
+    accessToken,
+  )
 
   const handleCloseConfirmation = () => {
     clearCart()
@@ -23,12 +30,39 @@ export const OrderSummaryContainer = ({
   }
 
   if (showConfirmation) {
-    return (
+    return ( 
       <OrderConfirmationContainer
         items={items}
         accessToken={accessToken}
-        orderDiscounts={ORDER_LEVEL_DISCOUNTS}
-        orderTaxes={ORDER_LEVEL_TAXES}
+        orderDiscounts={
+          selectedOrderDiscount
+            ? [
+                {
+                  name: selectedOrderDiscount.discount_name,
+                  percentage: selectedOrderDiscount.discount_value
+                    ?.toString()
+                    .replace('%', '')
+                    .trim(),
+                  scope: 'ORDER',
+                  type: 'FIXED_PERCENTAGE',
+                  uid: selectedOrderDiscount.discount_id,
+                },
+              ]
+            : []
+        }
+        orderTaxes={
+          selectedOrderTax
+            ? [
+                {
+                  name: selectedOrderTax.name,
+                  percentage: selectedOrderTax.percentage.toString().replace('%', '').trim(),
+                  scope: 'ORDER',
+                  type: 'ADDITIVE',
+                  uid: selectedOrderTax.tax_id,
+                },
+              ]
+            : []
+        }
         onClose={handleCloseConfirmation}
       />
     )

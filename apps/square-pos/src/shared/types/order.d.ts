@@ -35,6 +35,8 @@ interface OrderSummaryProps {
   setShowConfirmation: (open: boolean) => void
   showConfirmation: boolean
   setOpen: (open: boolean) => void
+  selectedOrderDiscount?: SelectedOrderDiscount | null
+  selectedOrderTax?: SelectedOrderTax | null
 }
 
 /**

@@ -119,7 +119,7 @@ export const itemFinalStyle = css({
 })
 
 export const orderSummarySectionStyle = css({
-  mt: 'gap.component.md',
+  mt: 'gap.component.sm',
   borderTop: '1px solid #eee',
   pt: 'gap.component.md',
 })
@@ -139,7 +139,7 @@ export const totalTaxStyle = css({
 export const orderTotalStyle = css({
   color: 'gray.900',
   fontSize: 'md',
-  fontWeight: 'bold',
+  fontWeight: 'semibold',
 })
 
 export const itemDiscountListStyle = css({

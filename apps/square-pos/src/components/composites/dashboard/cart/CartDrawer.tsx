@@ -8,14 +8,22 @@ import { Checkbox } from '@/components/primitives/ui/checkbox'
 import Drawer from '@/components/primitives/ui/drawer'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
+import { Skeleton } from '@/components/primitives/ui/skeleton'
 import { OrderSummaryContainer } from '@/containers/order/OrderSummaryContainer'
 import { useOrderSummary } from '@/containers/order/useOrderSummary'
 import { useCartStore } from '@/shared/store/useCartStore'
 import { formatMoney, handleOrderLevelChange } from '@/shared/utils/cartDrawerUtils'
+import { transformTaxes } from '@/shared/utils/productDataTransformers'
 import { useState } from 'react'
 import { FaShoppingCart } from 'react-icons/fa'
 import { css } from '~/styled-system/css'
 import { Box } from '~/styled-system/jsx'
+import {
+  orderSummarySectionStyle,
+  orderTotalStyle,
+  totalDiscountStyle,
+  totalTaxStyle,
+} from '../order/styles/styles'
 import CartItemCard from './CartItemCard'
 import {
   cartCountStyle,
@@ -33,13 +41,6 @@ import {
   summaryContainerStyle,
   totalTextStyle,
 } from './styles/CartDrawer.styles'
-import {
-  orderSummarySectionStyle,
-  orderTotalStyle,
-  totalDiscountStyle,
-  totalTaxStyle,
-} from '../order/styles/styles'
-import { transformTaxes } from '@/shared/utils/productDataTransformers'
 
 /**
  * Drawer component for displaying and managing the shopping cart.
@@ -152,12 +153,53 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                       onToggleTaxRate={(tax, checked) => {
                         toggleItemTaxRate(item.id, tax, checked)
                       }}
-                      onExcludeOrderLevelDiscount={(discountName, excluded) =>
+                      onExcludeOrderLevelDiscount={(discountName, excluded) => {
+                        // First, toggle exclusion for this item in the store
                         excludeOrderLevelDiscountForItem(item.id, discountName, excluded)
-                      }
-                      onExcludeOrderLevelTaxRate={(tax, excluded) =>
+                        // If user excluded the currently selected order-level discount for this item,
+                        // convert the global selection into item-level for all other items and clear the global selection.
+                        if (
+                          excluded &&
+                          selectedOrderDiscount &&
+                          selectedOrderDiscount.discount_name === discountName
+                        ) {
+                          items.forEach((it) => {
+                            if (it.id !== item.id) {
+                              toggleItemDiscount(
+                                it.id,
+                                {
+                                  discount_id: selectedOrderDiscount.discount_id,
+                                  discount_name: selectedOrderDiscount.discount_name,
+                                  discount_value: selectedOrderDiscount.discount_value,
+                                },
+                                true,
+                              )
+                            }
+                          })
+                          setSelectedOrderDiscount(null)
+                        }
+                      }}
+                      onExcludeOrderLevelTaxRate={(tax, excluded) => {
+                        // First, toggle exclusion for this item in the store
                         excludeOrderLevelTaxRateForItem(item.id, tax, excluded)
-                      }
+                        // If user excluded the currently selected order-level tax for this item,
+                        // convert the global selection into item-level for all other items and clear the global selection.
+                        const toNumber = (p: string | number | null | undefined) =>
+                          typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+                        if (
+                          excluded &&
+                          selectedOrderTax &&
+                          selectedOrderTax.name === tax.name &&
+                          toNumber(selectedOrderTax.percentage) === toNumber(tax.percentage)
+                        ) {
+                          items.forEach((it) => {
+                            if (it.id !== item.id) {
+                              toggleItemTaxRate(it.id, tax, true)
+                            }
+                          })
+                          setSelectedOrderTax(null)
+                        }
+                      }}
                     />
                   )
                 })}
@@ -291,22 +333,44 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                     </Modal.Content>
                   </Modal.Root>
 
-                  {/* <Box className={totalTextStyle}>
-                    Total: ${(orderPreview.total / 100).toFixed(2)}
-                  </Box> */}
-
-                  <Box className={orderSummarySectionStyle}>
-                    <Box className={totalDiscountStyle}>
-                      <b>Total Discount:</b>{' '}
-                      {formatMoney(orderPreview?.order.total_discount_money?.amount)}
+                  {isLoading ? (
+                    <Box className={orderSummarySectionStyle}>
+                      <Skeleton
+                        className={css({
+                          h: '5',
+                          w: '60',
+                          mb: '2',
+                          borderRadius: 'sm',
+                          bg: 'gray.200',
+                        })}
+                      />
+                      <Skeleton
+                        className={css({
+                          h: '5',
+                          w: '56',
+                          mb: '2',
+                          borderRadius: 'sm',
+                          bg: 'gray.200',
+                        })}
+                      />
+                      <Skeleton
+                        className={css({ h: '6', w: '64', borderRadius: 'sm', bg: 'gray.200' })}
+                      />
                     </Box>
-                    <Box className={totalTaxStyle}>
-                      <b>Total Tax:</b> {formatMoney(orderPreview?.order.total_tax_money?.amount)}
+                  ) : (
+                    <Box className={orderSummarySectionStyle}>
+                      <Box className={totalDiscountStyle}>
+                        <b>Discount:</b>{' '}
+                        {formatMoney(orderPreview?.order.total_discount_money?.amount)}
+                      </Box>
+                      <Box className={totalTaxStyle}>
+                        <b>Tax:</b> {formatMoney(orderPreview?.order.total_tax_money?.amount)}
+                      </Box>
+                      <Box className={orderTotalStyle}>
+                        <b>Total:</b> {formatMoney(orderPreview?.order.total_money?.amount)}
+                      </Box>
                     </Box>
-                    <Box className={orderTotalStyle}>
-                      <b>Order Total:</b> {formatMoney(orderPreview?.order.total_money?.amount)}
-                    </Box>
-                  </Box>
+                  )}
                 </Box>
               )}
               <ButtonVariant
@@ -340,6 +404,8 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
             setShowConfirmation={setShowConfirmation}
             showConfirmation={showConfirmation}
             setOpen={setOpen}
+            selectedOrderDiscount={selectedOrderDiscount}
+            selectedOrderTax={selectedOrderTax}
           />
         )}
       </Drawer.Content>

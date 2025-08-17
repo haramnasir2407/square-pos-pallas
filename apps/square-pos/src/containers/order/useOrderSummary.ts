@@ -1,5 +1,4 @@
 import { calculateOrderAction } from '@/app/actions/orders'
-import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
 import type { CartItem } from '@/shared/store/useCartStore'
 import { calculateOrderData } from '@/shared/utils/cartDrawerUtils'
 import { useEffect, useState, useTransition } from 'react'
