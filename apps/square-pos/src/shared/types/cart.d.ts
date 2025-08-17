@@ -15,6 +15,8 @@ interface CartItemCardProps {
   onToggleTaxRate: (tax: TaxRate, checked: boolean) => void
   onExcludeOrderLevelDiscount: (discountName: string, excluded: boolean) => void
   onExcludeOrderLevelTaxRate: (tax: TaxRate, excluded: boolean) => void
+  onSelectOrderLevelDiscount?: (discount: SelectedOrderDiscount | null) => void
+  onSelectOrderLevelTax?: (tax: SelectedOrderTax | null) => void
 }
 
 /**
@@ -26,7 +28,7 @@ interface CartItemCardProps {
  */
 
 interface CartDrawerProps {
-  accessToken?: string
+  accessToken: string
   cartInventoryInfo: Record<string, { state: string; quantity: string }>
   itemVariationIds: string[]
 }
@@ -38,21 +40,27 @@ interface CartDrawerProps {
  */
 
 type SelectedDiscount = {
+  discount_id: string
   discount_name: string
-  discount_value: string | number | null
+  discount_value: string | number
 }
 
 type SelectedTax = {
+  tax_id: string
   itemTaxRate?: number
   enabled?: boolean
 }
 
 type SelectedOrderDiscount = {
-  name: string
-  percentage: string
+  discount_id: string
+  discount_name: string
+  discount_value: string | number
 }
 
 type SelectedOrderTax = {
+  tax_id: string
   name: string
   percentage: string
+  itemTaxRate?: number
+  enabled?: boolean
 }

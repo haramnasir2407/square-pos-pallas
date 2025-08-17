@@ -2,7 +2,8 @@ import { useDiscounts } from '@/containers/product/useDiscounts'
 import { usePricingRules } from '@/containers/product/usePricingRules'
 import { hasValidQuery, useProductList } from '@/containers/product/useProductList'
 import { useProductSets } from '@/containers/product/useProductSets'
-import { useMemo, useState } from 'react'
+import { useCartStore } from '@/shared/store/useCartStore'
+import { useEffect, useMemo, useState } from 'react'
 import {
   extractCategories,
   extractDiscounts,
@@ -32,6 +33,7 @@ import type {
 import { createDiscountApplications } from '@/shared/utils/discountApplicationUtils'
 import { buildImageMap } from '../../shared/utils/imageUtils'
 import { buildCartInventoryInfo, buildInventoryMap } from '../../shared/utils/inventoryUtils'
+import { useTaxes } from './useTaxes'
 
 /**
  * Custom hook to manage and aggregate all product section data for the dashboard.
@@ -53,6 +55,7 @@ export function useProductSectionData({
 
   // * custom hook for fetching discounts
   const { error: discountsError, discounts: fetchedDiscounts } = useDiscounts(accessToken)
+  const { error: TaxesError, taxes: fetchedTaxes } = useTaxes(accessToken)
 
   // * custom hook for fetching pricing rules
   const { error: pricingRulesError, pricingRules: fetchedPricingRules } =
@@ -69,6 +72,9 @@ export function useProductSectionData({
     }
     return products
   }, [data, products, params.query])
+
+  // ? check discount uid
+  console.log('product data:', productData)
 
   // * Memoize data extraction to prevent recalculation on every render
   const items = useMemo(() => extractItems(productData), [productData])
@@ -113,6 +119,25 @@ export function useProductSectionData({
     [discountToProductSetMap, discounts_data, product_sets_data, allItemIds],
   )
 
+  // * Identify order-level discounts (those that apply to all items)
+  const orderLevelDiscounts = useMemo(() => {
+    return discountApplications
+      .filter((app) => app.applied_product_ids.length === allItemIds.length)
+      .map((app) => ({
+        discount_id: app.discount_id,
+        discount_name: app.discount_name,
+        discount_value: app.discount_value,
+      }))
+  }, [discountApplications, allItemIds.length])
+
+  // * Save order-level discounts to cart store
+  useEffect(() => {
+    if (orderLevelDiscounts.length > 0) {
+      // Save order-level discounts to cart store
+      useCartStore.getState().setOrderLevelDiscounts(orderLevelDiscounts)
+    }
+  }, [orderLevelDiscounts])
+
   // * use server-side inventory if provided, otherwise use client-fetched data
   const inventoryData = inventory
 
@@ -138,5 +163,8 @@ export function useProductSectionData({
     variationIds,
     discountApplications,
     categoryObjects,
+    fetchedDiscounts,
+    fetchedTaxes,
+    orderLevelDiscounts,
   }
 }

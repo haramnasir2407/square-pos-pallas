@@ -25,6 +25,8 @@ export default function ProductSectionContainer({
     variationIds,
     discountApplications,
     categoryObjects,
+    fetchedDiscounts,
+    fetchedTaxes,
   } = useProductSectionData({ accessToken, products, inventory })
 
   return (
@@ -42,6 +44,8 @@ export default function ProductSectionContainer({
       categoryObjects={categoryObjects}
       params={params}
       setParams={setParams}
+      fetchedDiscounts={fetchedDiscounts}
+      fetchedTaxes={fetchedTaxes}
     />
   )
 }

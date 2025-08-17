@@ -1,7 +1,9 @@
 'use client'
 import FilterDrawerContainer from '@/containers/filter'
 import { hasValidQuery } from '@/containers/product/useProductList'
+import { useCartStore } from '@/shared/store/useCartStore'
 import type { ProductSectionProps } from '@/shared/types/catalog'
+import React from 'react'
 import { css } from '~/styled-system/css'
 import { Box, Grid, HStack } from '~/styled-system/jsx'
 import CartDrawer from '../cart/CartDrawer'
@@ -29,7 +31,32 @@ export default function ProductSection({
   inventoryMap,
   imageMap,
   discountApplications,
+  fetchedDiscounts,
+  fetchedTaxes,
 }: ProductSectionProps) {
+  // * Get cart store actions for saving fetched data
+  const { setFetchedTaxes, setFetchedDiscounts } = useCartStore()
+
+  // * Save fetched taxes and discounts to cart store when they change
+  React.useEffect(() => {
+    if (fetchedTaxes && fetchedTaxes.length > 0) {
+      setFetchedTaxes(fetchedTaxes)
+    }
+  }, [fetchedTaxes, setFetchedTaxes])
+
+  React.useEffect(() => {
+    if (fetchedDiscounts && fetchedDiscounts.length > 0) {
+      // Transform catalog Discount format to cart store Discount format
+      const transformedDiscounts = fetchedDiscounts.map((discount) => ({
+        discount_id: discount.id,
+        discount_name: discount.discount_data.name,
+        discount_value:
+          discount.discount_data.percentage || discount.discount_data.amount_money?.amount || 0,
+      }))
+      setFetchedDiscounts(transformedDiscounts)
+    }
+  }, [fetchedDiscounts, setFetchedDiscounts])
+
   // * Render the main product section layout
   return (
     <Box className={css({ w: 'full', mt: 'layout.section.sm' })}>
@@ -79,8 +106,8 @@ export default function ProductSection({
 
           // * Match tax ids with taxes_data
           const matchedTaxes = (tax_ids ?? []).map((tax_id: string) => {
-            const tax = taxes_data.find((t) => t.id === tax_id)
-            return tax ? { name: tax.name, percentage: tax.percentage } : null
+            const tax = taxes_data.find((t) => t.tax_id === tax_id)
+            return tax ? { name: tax.name, percentage: tax.percentage, tax_id: tax.tax_id } : null
           })
 
           // * Build discounts array for each item
@@ -91,6 +118,7 @@ export default function ProductSection({
               return false
             })
             .map((app) => ({
+              discount_id: app.discount_id,
               discount_name: app.discount_name,
               discount_value: app.discount_value,
             }))
@@ -121,7 +149,8 @@ export default function ProductSection({
                 variationId={variationId}
                 discounts={discounts}
                 taxes={matchedTaxes.filter(
-                  (tax): tax is { name: string; percentage: string | number } => tax !== null,
+                  (tax): tax is { tax_id: string; name: string; percentage: string | number } =>
+                    tax !== null,
                 )}
               />
             </Box>

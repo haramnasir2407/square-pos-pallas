@@ -156,7 +156,13 @@ type orderData = {
     auto_apply_discounts: boolean
     auto_apply_taxes: boolean
   }
-  line_items: { quantity: string; catalog_object_id: string }[]
+  line_items: {
+    quantity: string
+    catalog_object_id: string
+    item_type?: string
+    applied_discounts?: { discount_uid: string; uid: string }[]
+    applied_taxes?: { tax_uid: string; uid: string }[]
+  }[]
   location_id: string
   discounts?: OrderDiscount[]
   taxes?: OrderTax[]

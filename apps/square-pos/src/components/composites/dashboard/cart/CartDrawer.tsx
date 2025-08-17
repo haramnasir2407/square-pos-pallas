@@ -1,7 +1,6 @@
 'use client'
 
 // CSR
-
 import { ButtonVariant } from '@/components/primitives/derived/ButtonVariant'
 import { Badge } from '@/components/primitives/ui/badge'
 import { Button } from '@/components/primitives/ui/button'
@@ -10,16 +9,9 @@ import Drawer from '@/components/primitives/ui/drawer'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
 import { OrderSummaryContainer } from '@/containers/order/OrderSummaryContainer'
-import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
+import { useOrderSummary } from '@/containers/order/useOrderSummary'
 import { useCartStore } from '@/shared/store/useCartStore'
-import {
-  getDrawerOrderSummary,
-  handleDiscountSelect,
-  handleDiscountToggle,
-  handleOrderLevelChange,
-  handleTaxSelect,
-  handleTaxToggle,
-} from '@/shared/utils/cartDrawerUtils'
+import { formatMoney, handleOrderLevelChange } from '@/shared/utils/cartDrawerUtils'
 import { useState } from 'react'
 import { FaShoppingCart } from 'react-icons/fa'
 import { css } from '~/styled-system/css'
@@ -41,6 +33,13 @@ import {
   summaryContainerStyle,
   totalTextStyle,
 } from './styles/CartDrawer.styles'
+import {
+  orderSummarySectionStyle,
+  orderTotalStyle,
+  totalDiscountStyle,
+  totalTaxStyle,
+} from '../order/styles/styles'
+import { transformTaxes } from '@/shared/utils/productDataTransformers'
 
 /**
  * Drawer component for displaying and managing the shopping cart.
@@ -51,7 +50,8 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   const items = useCartStore((state) => state.items)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const removeItem = useCartStore((state) => state.removeItem)
-  const getOrderSummary = useCartStore((state) => state.getOrderSummary)
+  const orderLevelDiscounts = useCartStore((state) => state.orderLevelDiscounts)
+  const fetchedTaxes = useCartStore((state) => state.fetchedTaxes)
   const clearCart = useCartStore((state) => state.clearCart)
   const toggleItemDiscount = useCartStore((state) => state.toggleItemDiscount)
   const toggleItemTaxRate = useCartStore((state) => state.toggleItemTaxRate)
@@ -73,12 +73,15 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   )
   const [selectedOrderTax, setSelectedOrderTax] = useState<SelectedOrderTax | null>(null)
 
-  const drawerOrderSummary = getDrawerOrderSummary({
+  // ? show skeleton for loading state
+  const { orderPreview, isLoading, error } = useOrderSummary(
     items,
     selectedOrderDiscount,
     selectedOrderTax,
-    getOrderSummary,
-  })
+    accessToken,
+  )
+
+  const orderlevelTaxes = transformTaxes(fetchedTaxes)
 
   return (
     <Drawer.Root
@@ -165,7 +168,6 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
               {items.length > 0 && (
                 <Box className={summaryBoxStyle}>
                   {/* Order-level discount/tax controls via modal */}
-
                   <Modal.Root open={orderOptionsOpen} onOpenChange={setOrderOptionsOpen}>
                     <Modal.Trigger asChild>
                       <Button size="sm" variant="outlined" width="full">
@@ -201,12 +203,13 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                               gap: '2',
                             })}
                           >
-                            {ORDER_LEVEL_DISCOUNTS.map((discount) => {
-                              const checked = selectedOrderDiscount?.name === discount.name
+                            {orderLevelDiscounts.map((discount) => {
+                              const checked =
+                                selectedOrderDiscount?.discount_name === discount.discount_name
                               return (
                                 <Label
-                                  key={discount.name}
-                                  htmlFor={`order-discount-${discount.name}`}
+                                  key={discount.discount_name}
+                                  htmlFor={`order-discount-${discount.discount_name}`}
                                   className={css({
                                     fontSize: 'xs',
                                     display: 'flex',
@@ -215,7 +218,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                   })}
                                 >
                                   <Checkbox
-                                    id={`order-discount-${discount.name}`}
+                                    id={`order-discount-${discount.discount_name}`}
                                     size="sm"
                                     checked={checked}
                                     onCheckedChange={(c) => {
@@ -225,11 +228,10 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                         value: orderDiscount as SelectedOrderDiscount,
                                         setSelectedOrderDiscount,
                                         setSelectedOrderTax,
-                                        items,
                                       })
                                     }}
                                   />
-                                  {discount.name}
+                                  {discount.discount_name}
                                 </Label>
                               )
                             })}
@@ -246,7 +248,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                               gap: '2',
                             })}
                           >
-                            {ORDER_LEVEL_TAXES.map((tax) => {
+                            {orderlevelTaxes.map((tax) => {
                               const checked = selectedOrderTax?.name === tax.name
                               return (
                                 <Label
@@ -270,7 +272,6 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                         value: orderTax as SelectedOrderTax,
                                         setSelectedOrderDiscount,
                                         setSelectedOrderTax,
-                                        items,
                                       })
                                     }}
                                   />
@@ -290,8 +291,21 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                     </Modal.Content>
                   </Modal.Root>
 
-                  <Box className={totalTextStyle}>
-                    Total: ${(drawerOrderSummary.total / 100).toFixed(2)}
+                  {/* <Box className={totalTextStyle}>
+                    Total: ${(orderPreview.total / 100).toFixed(2)}
+                  </Box> */}
+
+                  <Box className={orderSummarySectionStyle}>
+                    <Box className={totalDiscountStyle}>
+                      <b>Total Discount:</b>{' '}
+                      {formatMoney(orderPreview?.order.total_discount_money?.amount)}
+                    </Box>
+                    <Box className={totalTaxStyle}>
+                      <b>Total Tax:</b> {formatMoney(orderPreview?.order.total_tax_money?.amount)}
+                    </Box>
+                    <Box className={orderTotalStyle}>
+                      <b>Order Total:</b> {formatMoney(orderPreview?.order.total_money?.amount)}
+                    </Box>
                   </Box>
                 </Box>
               )}

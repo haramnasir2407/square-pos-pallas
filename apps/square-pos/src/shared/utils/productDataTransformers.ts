@@ -18,7 +18,7 @@ import type {
  */
 export function transformTaxes(taxes: Tax[]): TransformedTax[] {
   return taxes.map((tax) => ({
-    id: tax.id,
+    tax_id: tax.id,
     name: tax.tax_data.name,
     percentage: Number.parseFloat(tax.tax_data.percentage),
     enabled: tax.tax_data.enabled,
@@ -31,7 +31,7 @@ export function transformDiscounts(discounts: Discount[]): TransformedDiscount[]
   return discounts.map((discount) => {
     const { id, discount_data } = discount
     const base = {
-      id,
+      discount_id: id,
       name: discount_data.name,
       type: discount_data.discount_type,
       modify_tax_basis: discount_data.modify_tax_basis,

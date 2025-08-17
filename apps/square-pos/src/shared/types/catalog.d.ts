@@ -1,25 +1,7 @@
 import type { CartItem } from '../context/CartContext'
+import type { TaxRate } from '../store/useCartStore'
 import { buildCartInventoryInfo } from '../utils/inventoryUtils'
 
-/**
- * Props for the ProductCard component.
- */
-interface ProductCardProps {
-  id: string
-  name: string
-  price: number | null
-  imageUrl: string | undefined
-  state?: string
-  quantity?: string | number
-  is_taxable?: boolean | undefined
-  itemTaxRate?: number
-  variationId?: string
-  discounts?: Array<{
-    discount_name: string
-    discount_value: string | number | null
-  }>
-  taxes?: Array<{ name: string; percentage: string | number | null }>
-}
 /**
  * Props for the Product Section hook
  */
@@ -52,6 +34,8 @@ export type ProductSectionProps = {
   inventoryMap: InventoryMap
   imageMap: ImageMap
   discountApplications: DiscountApplication[]
+  fetchedDiscounts: Discount[]
+  fetchedTaxes: TaxRate[]
 }
 
 export type UseProductSectionDataReturn = {
@@ -70,6 +54,13 @@ export type UseProductSectionDataReturn = {
   variationIds: string[]
   categoryObjects: CategoryObject[]
   discountApplications: DiscountApplication[]
+  fetchedDiscounts: Discount[]
+  fetchedTaxes: Tax[]
+  orderLevelDiscounts: Array<{
+    discount_id: string
+    discount_name: string
+    discount_value: string | number
+  }>
   // catalogObjects: CatalogObject[]
 }
 
@@ -88,23 +79,31 @@ interface ProductCardProps {
   id: string
   name: string
   price: number | null
-  imageUrl: string
+  imageUrl: string | undefined
   state?: string
   quantity?: string | number
   is_taxable?: boolean | undefined
   itemTaxRate?: number
-  variantId?: string
+  variationId?: string
   discounts?: Array<{
+    discount_id: string
     discount_name: string
-    discount_value: string | number | null
+    discount_value: string | number
   }>
-  taxes?: Array<{ name: string; percentage: string | number }>
+  taxes?: Array<{ tax_id: string; name: string; percentage: string | number }>
+  is_taxable: boolean
 }
 /**
  * discount hook
  */
 export interface UseDiscountsReturn {
   discounts: Discount[]
+  isLoading: boolean
+  error: Error | null
+}
+
+export interface UseTaxesReturn {
+  taxes: Tax[]
   isLoading: boolean
   error: Error | null
 }
@@ -225,7 +224,7 @@ export interface Tax extends CatalogObject {
   id: string
   type: 'TAX'
   tax_data: TaxData
-}
+} 
 
 export interface TaxData {
   name: string
@@ -234,7 +233,7 @@ export interface TaxData {
 }
 
 export interface TransformedTax {
-  id: string
+  tax_id: string
   name: string
   percentage: string | number
   enabled: boolean
@@ -258,7 +257,7 @@ export interface DiscountData {
 }
 
 export interface TransformedDiscount {
-  id: string
+  discount_id: string
   name: string
   type: string
   modify_tax_basis: string
@@ -269,7 +268,7 @@ export interface TransformedDiscount {
 export interface DiscountApplication {
   discount_id: string
   discount_name: string
-  discount_value: string | number | null
+  discount_value: string | number
   applied_product_ids: string[]
 }
 

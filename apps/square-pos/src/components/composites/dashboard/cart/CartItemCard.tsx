@@ -5,7 +5,6 @@ import { Button } from '@/components/primitives/ui/button'
 import { Checkbox } from '@/components/primitives/ui/checkbox'
 import { Label } from '@/components/primitives/ui/label'
 import Modal from '@/components/primitives/ui/modal/modal'
-import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
 import type { Discount, TaxRate } from '@/shared/store/useCartStore'
 import Image from 'next/image'
 import { useState } from 'react'
@@ -45,54 +44,32 @@ export default function CartItemCard({
   onToggleTaxRate,
   onExcludeOrderLevelDiscount,
   onExcludeOrderLevelTaxRate,
+  onSelectOrderLevelDiscount,
+  onSelectOrderLevelTax,
 }: CartItemCardProps) {
   const [open, setOpen] = useState(false)
 
   // Normalize order-level to item-level shapes for display/merge
   const orderLevelTaxAsTaxRate: TaxRate | null = orderLevelTax
-    ? { name: orderLevelTax.name, percentage: orderLevelTax.percentage }
+    ? {
+        name: orderLevelTax.name,
+        percentage: orderLevelTax.percentage,
+        tax_id: orderLevelTax.tax_id,
+      }
     : null
   const orderLevelDiscountAsDiscount: Discount | null = orderLevelDiscount
     ? {
-        discount_name: orderLevelDiscount.name,
-        discount_value: `${orderLevelDiscount.percentage}%`,
+        discount_name: orderLevelDiscount.discount_name,
+        discount_value: orderLevelDiscount.discount_value,
+        discount_id: orderLevelDiscount.discount_id,
       }
     : null
 
-  const toNumber = (p: string | number | null) =>
-    typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+  const toNumber = (percentage: string | number) =>
+    typeof percentage === 'number' ? percentage : percentage ? Number(percentage) : Number.NaN
 
-  const mergeTaxes = (list: TaxRate[], extras: TaxRate[]) => {
-    const base = [...list]
-    for (const extra of extras) {
-      const exists = base.some(
-        (t) => t.name === extra.name && toNumber(t.percentage) === toNumber(extra.percentage),
-      )
-      if (!exists) base.push(extra)
-    }
-    return base
-  }
-
-  const mergeDiscounts = (list: Discount[], extras: Discount[]) => {
-    const base = [...list]
-    for (const extra of extras) {
-      const exists = base.some((d) => d.discount_name === extra.discount_name)
-      if (!exists) base.push(extra)
-    }
-    return base
-  }
-
-  const orderLevelTaxes: TaxRate[] = ORDER_LEVEL_TAXES.map((t) => ({
-    name: t.name,
-    percentage: t.percentage,
-  }))
-  const orderLevelDiscounts: Discount[] = ORDER_LEVEL_DISCOUNTS.map((d) => ({
-    discount_name: d.name,
-    discount_value: `${d.percentage}%`,
-  }))
-
-  const itemTaxes = mergeTaxes(taxes, orderLevelTaxes)
-  const itemDiscounts = mergeDiscounts(discounts, orderLevelDiscounts)
+  const itemTaxes = taxes
+  const itemDiscounts = discounts
 
   return (
     <Flex
@@ -288,14 +265,6 @@ export default function CartItemCard({
         const appliedTaxes: TaxRate[] = []
         if (item.appliedTaxRates && item.appliedTaxRates.length > 0) {
           appliedTaxes.push(...item.appliedTaxRates)
-        } else if (item.is_taxable && item.itemTaxRate !== undefined) {
-          const taxes = {
-            name:
-              item.taxes?.find((t: TaxRate) => Number(t.percentage) === item.itemTaxRate)?.name ||
-              'Tax',
-            percentage: item.itemTaxRate,
-          }
-          appliedTaxes.push(taxes)
         }
         if (orderLevelTaxAsTaxRate) {
           const isExcluded = (item.excludedOrderTaxRates ?? []).some(
@@ -328,6 +297,7 @@ export default function CartItemCard({
               (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
             )
             if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
+              // console.log('applied discounts:', appliedDiscounts)
           }
         }
 

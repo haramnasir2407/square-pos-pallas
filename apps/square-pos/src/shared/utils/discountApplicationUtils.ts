@@ -61,11 +61,11 @@ export function createDiscountApplications(
 ): DiscountApplication[] {
   return discountToProductSetMap.map(({ discount_id, product_set_id }) => {
     // Get discount name
-    const discount = discountsData.find((d) => d.id === discount_id)
+    const discount = discountsData.find((d) => d.discount_id === discount_id)
     const discount_name = discount ? discount.name : ''
 
     // Calculate discount value
-    const discount_value = discount ? calculateDiscountValue(discount) : null
+    const discount_value = discount ? calculateDiscountValue(discount) || 0 : 0
 
     // Find the product set
     const productSet = productSetsData.find((ps) => ps.id === product_set_id)

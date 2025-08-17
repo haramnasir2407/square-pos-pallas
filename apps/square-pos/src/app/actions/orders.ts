@@ -4,7 +4,7 @@ import { API_CONFIG } from '@/shared/constants/api'
 import { apiFetch } from '@/shared/utils/apiFetch'
 
 export async function calculateOrderAction(
-  orderData: { idempotency_key: string; order: orderData },
+  orderData: { order: orderData },
   accessToken: string,
 ): Promise<OrderPreview> {
   if (!accessToken) {

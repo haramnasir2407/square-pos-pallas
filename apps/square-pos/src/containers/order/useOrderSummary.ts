@@ -2,9 +2,14 @@ import { calculateOrderAction } from '@/app/actions/orders'
 import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
 import type { CartItem } from '@/shared/store/useCartStore'
 import { calculateOrderData } from '@/shared/utils/cartDrawerUtils'
-import { useState, useTransition, useEffect } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 
-export const useOrderSummary = (items: CartItem[], accessToken: string) => {
+export const useOrderSummary = (
+  items: CartItem[],
+  selectedOrderDiscount: SelectedOrderDiscount | null,
+  selectedOrderTax: SelectedOrderTax | null,
+  accessToken: string,
+) => {
   const [orderPreview, setOrderPreview] = useState<OrderPreview | null>(null)
   const [error, setError] = useState<Error | null>(null)
 
@@ -17,11 +22,35 @@ export const useOrderSummary = (items: CartItem[], accessToken: string) => {
         setError(null)
         const orderData = calculateOrderData({
           items,
-          orderDiscounts: ORDER_LEVEL_DISCOUNTS,
-          orderTaxes: ORDER_LEVEL_TAXES,
+          orderDiscounts: selectedOrderDiscount
+            ? [
+                {
+                  name: selectedOrderDiscount.discount_name,
+                  percentage: selectedOrderDiscount.discount_value
+                    ?.toString()
+                    .replace('%', '')
+                    .trim(),
+                  scope: 'ORDER',
+                  type: 'FIXED_PERCENTAGE',
+                  uid: selectedOrderDiscount.discount_id,
+                },
+              ]
+            : [],
+          orderTaxes: selectedOrderTax
+            ? [
+                {
+                  name: selectedOrderTax.name,
+                  percentage: selectedOrderTax.percentage.toString().replace('%', '').trim(),
+                  scope: 'ORDER',
+                  type: 'ADDITIVE',
+                  uid: selectedOrderTax.tax_id,
+                },
+              ]
+            : [],
         })
 
         const result = await calculateOrderAction(orderData, accessToken)
+        console.log('result:', result)
         setOrderPreview(result)
       } catch (err) {
         console.error('Error creating order:', err)
@@ -36,7 +65,7 @@ export const useOrderSummary = (items: CartItem[], accessToken: string) => {
     if (items.length && accessToken) {
       calculateOrder()
     }
-  }, [items, accessToken])
+  }, [items, accessToken, selectedOrderDiscount, selectedOrderTax])
 
   return { orderPreview, isLoading: isPending, error, recalculate: calculateOrder }
 }

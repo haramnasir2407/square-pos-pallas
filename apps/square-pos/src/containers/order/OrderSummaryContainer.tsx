@@ -1,7 +1,7 @@
 import { OrderSummary } from '@/components/composites/dashboard/order/OrderSummary'
 import { ORDER_LEVEL_DISCOUNTS, ORDER_LEVEL_TAXES } from '@/shared/constants/order_discounts_taxes'
-import { useOrderSummary } from './useOrderSummary'
 import { OrderConfirmationContainer } from './OrderConfirmationContainer'
+import { useOrderSummary } from './useOrderSummary'
 
 export const OrderSummaryContainer = ({
   items,

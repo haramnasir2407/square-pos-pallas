@@ -1,15 +1,17 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { calculateItemDiscountValue } from '../utils/cartDrawerUtils'
+import type { Tax } from '../types/catalog'
 
 export type Discount = {
+  discount_id: string
   discount_name: string
-  discount_value: string | number | null
+  discount_value: string | number
 }
 
 export type TaxRate = {
+  tax_id: string
   name: string
-  percentage: string | number | null
+  percentage: string | number
 }
 
 export type CartItem = {
@@ -18,25 +20,29 @@ export type CartItem = {
   price: number | null
   imageUrl: string | undefined
   quantity: number
-  // legacy single-select fields (kept for backward compatibility)
   is_taxable?: boolean
   itemTaxRate?: number
   category?: string
-  // legacy single-select field (kept for backward compatibility)
   itemDiscount?: Discount
   variationId?: string
   discounts?: Discount[]
   taxes?: TaxRate[]
-  // new multi-select fields
   appliedDiscounts?: Discount[]
   appliedTaxRates?: TaxRate[]
-  // per-item opt-outs from order-level selections
   excludedOrderDiscountNames?: string[]
   excludedOrderTaxRates?: TaxRate[]
 }
 
 type CartState = {
   items: CartItem[]
+  orderLevelDiscounts: Array<{
+    discount_id: string
+    discount_name: string
+    discount_value: string | number
+  }>
+  // Add new state for fetched taxes and discounts
+  fetchedTaxes: Tax[]
+  fetchedDiscounts: Discount[]
   addItem: (item: CartItem) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
@@ -55,7 +61,17 @@ type CartState = {
     excluded: boolean,
   ) => void
   excludeOrderLevelTaxRateForItem: (itemId: string, taxRate: TaxRate, excluded: boolean) => void
-  getOrderSummary: () => OrderSummary
+  // order-level discount management
+  setOrderLevelDiscounts: (
+    discounts: Array<{
+      discount_id: string
+      discount_name: string
+      discount_value: string | number
+    }>,
+  ) => void
+  // Add new actions for setting fetched data
+  setFetchedTaxes: (taxes: Tax[]) => void
+  setFetchedDiscounts: (discounts: Discount[]) => void
 }
 
 export type OrderSummary = {
@@ -71,23 +87,12 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      orderLevelDiscounts: [],
+      // Add new state for fetched taxes and discounts
+      fetchedTaxes: [],
+      fetchedDiscounts: [],
       addItem: (item: CartItem) => {
         set((state: CartState) => {
-          const existing = state.items.find((i: CartItem) => i.id === item.id)
-          if (existing) {
-            // If item exists, update quantity and merge properties
-            return {
-              items: state.items.map((i: CartItem) =>
-                i.id === item.id
-                  ? {
-                      ...i,
-                      ...item,
-                      quantity: i.quantity + (item.quantity || 1),
-                    }
-                  : i,
-              ),
-            }
-          }
           return { items: [...state.items, item] }
         })
       },
@@ -106,103 +111,6 @@ export const useCartStore = create<CartState>()(
             items: state.items.map((i: CartItem) => (i.id === id ? { ...i, quantity } : i)),
           }
         }),
-      getOrderSummary: () => {
-        const items = get().items
-        let subtotal = 0
-        let discountAmount = 0
-        let taxAmount = 0
-        const appliedDiscounts: Discount[] = []
-        const appliedTaxRates: TaxRate[] = []
-
-        for (const item of items) {
-          const itemPrice = item.price ?? 0
-          const itemSubtotal = itemPrice * item.quantity
-          let itemDiscountValue = 0
-          let itemTaxValue = 0
-
-          // Multi-discount support
-          const effectiveDiscounts: Discount[] =
-            item.appliedDiscounts && item.appliedDiscounts.length > 0
-              ? item.appliedDiscounts
-              : item.itemDiscount
-                ? [item.itemDiscount]
-                : []
-
-          // Collect applied discounts for summary
-          appliedDiscounts.push(...effectiveDiscounts)
-
-          // Calculate combined discount value
-          if (effectiveDiscounts.length > 0) {
-            const percentSum = effectiveDiscounts
-              .map((d) =>
-                typeof d.discount_value === 'string' && d.discount_value.includes('%')
-                  ? Number.parseFloat(d.discount_value)
-                  : undefined,
-              )
-              .filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
-              .reduce((acc, v) => acc + v, 0)
-            if (percentSum > 0) {
-              const remainingAfterBogo = Math.max(itemSubtotal - itemDiscountValue, 0)
-              itemDiscountValue += (remainingAfterBogo * percentSum) / 100
-            }
-            // Fixed-amount discounts (numbers or numeric strings)
-            const fixedSumPerUnit = effectiveDiscounts
-              .map((d) => {
-                if (typeof d.discount_value === 'number') return d.discount_value
-                if (typeof d.discount_value === 'string' && !d.discount_value.includes('%')) {
-                  const num = Number.parseFloat(d.discount_value)
-                  return Number.isNaN(num) ? 0 : num
-                }
-                return 0
-              })
-              .reduce((acc, v) => acc + v, 0)
-            if (fixedSumPerUnit > 0) {
-              itemDiscountValue += fixedSumPerUnit * item.quantity
-            }
-          }
-
-          const discountedSubtotal = Math.max(itemSubtotal - itemDiscountValue, 0)
-          discountAmount += itemDiscountValue
-
-          // Multi-tax support
-          const effectiveTaxes: TaxRate[] =
-            item.appliedTaxRates && item.appliedTaxRates.length > 0
-              ? item.appliedTaxRates
-              : item.is_taxable && item.itemTaxRate !== undefined
-                ? [
-                    {
-                      name:
-                        item.taxes?.find((t) => Number(t.percentage) === item.itemTaxRate)?.name ||
-                        'Tax',
-                      percentage: item.itemTaxRate,
-                    },
-                  ]
-                : []
-
-          appliedTaxRates.push(...effectiveTaxes)
-
-          if (effectiveTaxes.length > 0) {
-            const percentSum = effectiveTaxes
-              .map((t) => (typeof t.percentage === 'number' ? t.percentage : Number(t.percentage)))
-              .filter((v) => typeof v === 'number' && !Number.isNaN(v)) as number[]
-            const taxPercents = percentSum as unknown as number[] // satisfy linter with explicit grouping
-            const totalPercent = taxPercents.reduce((acc: number, v: number) => acc + v, 0)
-            itemTaxValue = (discountedSubtotal * totalPercent) / 100
-          }
-
-          taxAmount += itemTaxValue
-          subtotal += discountedSubtotal
-        }
-        const total = subtotal + taxAmount
-        return {
-          subtotal,
-          discountAmount,
-          taxAmount,
-          total,
-          appliedDiscounts,
-          appliedTaxRates,
-        }
-      },
       clearCart: () => set(() => ({ items: [] })),
       applyItemDiscount: (itemId: string, discount: Discount) =>
         set((state: CartState) => ({
@@ -215,6 +123,22 @@ export const useCartStore = create<CartState>()(
           items: state.items.map((item: CartItem) => {
             if (item.id === itemId) {
               const { itemDiscount, ...rest } = item
+              return rest
+            }
+            return item
+          }),
+        })),
+      // applyItemTax: (itemId: string, tax: TaxRate) =>
+      //   set((state: CartState) => ({
+      //     items: state.items.map((item: CartItem) =>
+      //       item.id === itemId ? { ...item, itemTaxRate: tax } : item,
+      //     ),
+      //   })),
+      removeItemTax: (itemId: string) =>
+        set((state: CartState) => ({
+          items: state.items.map((item: CartItem) => {
+            if (item.id === itemId) {
+              const { itemTaxRate, ...rest } = item
               return rest
             }
             return item
@@ -336,6 +260,19 @@ export const useCartStore = create<CartState>()(
             }
             return item
           }),
+        })),
+      setOrderLevelDiscounts: (discounts) =>
+        set(() => ({
+          orderLevelDiscounts: discounts,
+        })),
+      // Add new actions for setting fetched data
+      setFetchedTaxes: (taxes) =>
+        set(() => ({
+          fetchedTaxes: taxes,
+        })),
+      setFetchedDiscounts: (discounts) =>
+        set(() => ({
+          fetchedDiscounts: discounts,
         })),
     }),
     {

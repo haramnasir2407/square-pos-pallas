@@ -35,6 +35,7 @@ export default function ProductCard({
   variationId,
   discounts,
   taxes,
+  is_taxable,
 }: ProductCardProps) {
   // * Use zustand store
   const items = useCartStore((state) => state.items)
@@ -119,10 +120,10 @@ export default function ProductCard({
                 price,
                 imageUrl,
                 quantity: 1,
-                is_taxable: false,
+                is_taxable,
                 variationId,
                 discounts,
-                taxes,
+                taxes
               })
             }
           >
