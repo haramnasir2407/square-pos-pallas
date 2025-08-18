@@ -1,5 +1,6 @@
 'use client'
-
+import { MdOutlineDiscount } from 'react-icons/md'
+import { MdDiscount } from 'react-icons/md'
 import { ButtonVariant } from '@/components/primitives/derived/ButtonVariant'
 import { Button } from '@/components/primitives/ui/button'
 import { Checkbox } from '@/components/primitives/ui/checkbox'
@@ -122,8 +123,8 @@ export default function CartItemCard({
         <Box className={css({ ml: 'auto' })}>
           <Modal.Root open={open} onOpenChange={setOpen}>
             <Modal.Trigger asChild>
-              <Button size="sm" variant="primary">
-                Show options
+              <Button size="sm" variant="outlined" className={css({ fontSize: 'xs' })}>
+                <MdOutlineDiscount /> Show options
               </Button>
             </Modal.Trigger>
 
@@ -138,7 +139,7 @@ export default function CartItemCard({
               })}
             >
               <Modal.Header>
-                <Modal.Title>Apply item-level discounts and taxes</Modal.Title>
+                <Modal.Title>Item-level discounts and taxes</Modal.Title>
                 <Modal.Description>
                   You can apply discounts and taxes to this item.
                 </Modal.Description>

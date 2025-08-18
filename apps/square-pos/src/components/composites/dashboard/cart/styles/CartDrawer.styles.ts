@@ -110,6 +110,6 @@ export const clearCartButtonStyle = css({
 export const checkoutButtonStyle = css({
   py: 'padding.block.lg',
   px: 'padding.inline.md',
-  fontWeight: 'bold',
+  fontWeight: 'semibold',
   fontSize: 'md',
 })

@@ -18,6 +18,7 @@ import { useState } from 'react'
 import { FaShoppingCart } from 'react-icons/fa'
 import { css } from '~/styled-system/css'
 import { Box } from '~/styled-system/jsx'
+import { MdOutlineDiscount } from 'react-icons/md'
 import {
   orderSummarySectionStyle,
   orderTotalStyle,
@@ -230,7 +231,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                         })}
                       />
                       <Skeleton
-                        className={css({ h: '6', w: '64', borderRadius: 'sm', bg: 'gray.200' })}
+                        className={css({ h: '5', w: '56', borderRadius: 'sm', bg: 'gray.200' })}
                       />
                     </Box>
                   ) : (
@@ -258,7 +259,8 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                           fontSize: 'sm',
                         })}
                       >
-                        Add discount/tax
+                        <MdOutlineDiscount />
+                        Add discount and tax
                       </Button>
                     </Modal.Trigger>
                     <Modal.Content
@@ -411,7 +413,7 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                 disabled={items.length === 0}
                 onClick={() => setShowCheckout(true)}
               >
-                Proceed to Checkout
+                Checkout with ({items.length}) items
               </ButtonVariant>
             </Box>
           </>
