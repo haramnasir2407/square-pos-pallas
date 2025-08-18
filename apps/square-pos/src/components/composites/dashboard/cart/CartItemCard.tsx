@@ -1,6 +1,4 @@
 'use client'
-import { MdOutlineDiscount } from 'react-icons/md'
-import { MdDiscount } from 'react-icons/md'
 import { ButtonVariant } from '@/components/primitives/derived/ButtonVariant'
 import { Button } from '@/components/primitives/ui/button'
 import { Checkbox } from '@/components/primitives/ui/checkbox'
@@ -12,6 +10,8 @@ import { useState } from 'react'
 import { FaTrash } from 'react-icons/fa6'
 import { FiMinus } from 'react-icons/fi'
 import { GoPlus } from 'react-icons/go'
+import { MdOutlineDiscount } from 'react-icons/md'
+import { MdDiscount } from 'react-icons/md'
 import { css } from '~/styled-system/css'
 import { Box, Flex, VStack } from '~/styled-system/jsx'
 import {
@@ -300,37 +300,33 @@ export default function CartItemCard({
               (d) => d.discount_name === orderLevelDiscountAsDiscount.discount_name,
             )
             if (!exists) appliedDiscounts.push(orderLevelDiscountAsDiscount)
-            // console.log('applied discounts:', appliedDiscounts)
           }
         }
 
-        // Hide BOGO in display when quantity < 2
-        const isBogo = (d: Discount) =>
-          typeof d.discount_name === 'string' &&
-          d.discount_name.toLowerCase().includes('buy one get one free')
-        const displayDiscounts: Discount[] =
-          item.quantity >= 2 ? appliedDiscounts : appliedDiscounts.filter((d) => !isBogo(d))
+        const displayDiscounts: Discount[] = appliedDiscounts
 
         if (appliedTaxes.length === 0 && displayDiscounts.length === 0) return null
 
         return (
-          <VStack gap={2} align="start" mt={1} justify="space-between" w="full">
-            {displayDiscounts.length > 0 && (
-              <Box className={css({ fontSize: 'xs' })}>
-                <span className={css({ fontWeight: 'semibold', whiteSpace: 'nowrap' })}>
-                  Applied discounts:
-                </span>{' '}
-                {displayDiscounts.map((d) => d.discount_name).join(', ')}
-              </Box>
-            )}
-            {appliedTaxes.length > 0 && (
-              <Box className={css({ fontSize: 'xs' })}>
-                <span className={css({ fontWeight: 'semibold', whiteSpace: 'nowrap' })}>
-                  Applied taxes:
-                </span>{' '}
-                {appliedTaxes.map((t) => `${t.name} (${t.percentage}%)`).join(', ')}
-              </Box>
-            )}
+          <VStack gap={1} align="start" mt={1} justify="space-between" w="full">
+            {displayDiscounts.length > 0 &&
+              displayDiscounts.map((d) => (
+                <Box
+                  key={`discount-${d.discount_id ?? d.discount_name}`}
+                  className={css({ fontSize: 'xs' })}
+                >
+                  {d.discount_name}
+                </Box>
+              ))}
+            {appliedTaxes.length > 0 &&
+              appliedTaxes.map((t) => (
+                <Box
+                  key={`tax-${t.tax_id ?? `${t.name}-${t.percentage}`}`}
+                  className={css({ fontSize: 'xs' })}
+                >
+                  {t.name} ({t.percentage}%)
+                </Box>
+              ))}
           </VStack>
         )
       })()}
