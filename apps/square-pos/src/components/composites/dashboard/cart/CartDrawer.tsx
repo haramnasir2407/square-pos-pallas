@@ -209,6 +209,44 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
             <Box className={summaryContainerStyle}>
               {items.length > 0 && (
                 <Box className={summaryBoxStyle}>
+                  {isLoading ? (
+                    <Box className={orderSummarySectionStyle}>
+                      <Skeleton
+                        className={css({
+                          h: '5',
+                          w: '60',
+                          mb: '2',
+                          borderRadius: 'sm',
+                          bg: 'gray.200',
+                        })}
+                      />
+                      <Skeleton
+                        className={css({
+                          h: '5',
+                          w: '56',
+                          mb: '2',
+                          borderRadius: 'sm',
+                          bg: 'gray.200',
+                        })}
+                      />
+                      <Skeleton
+                        className={css({ h: '6', w: '64', borderRadius: 'sm', bg: 'gray.200' })}
+                      />
+                    </Box>
+                  ) : (
+                    <Box className={orderSummarySectionStyle}>
+                      <Box className={totalDiscountStyle}>
+                        <b>Discount:</b>{' '}
+                        {formatMoney(orderPreview?.order.total_discount_money?.amount)}
+                      </Box>
+                      <Box className={totalTaxStyle}>
+                        <b>Tax:</b> {formatMoney(orderPreview?.order.total_tax_money?.amount)}
+                      </Box>
+                      <Box className={orderTotalStyle}>
+                        <b>Total:</b> {formatMoney(orderPreview?.order.total_money?.amount)}
+                      </Box>
+                    </Box>
+                  )}
                   {/* Order-level discount/tax controls via modal */}
                   <Modal.Root open={orderOptionsOpen} onOpenChange={setOrderOptionsOpen}>
                     <Modal.Trigger asChild>
@@ -217,10 +255,10 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                         variant="outlined"
                         width="full"
                         className={css({
-                          fontSize: 'xs',
+                          fontSize: 'sm',
                         })}
                       >
-                        Order Discounts/Taxes
+                        Add discount/tax
                       </Button>
                     </Modal.Trigger>
                     <Modal.Content
@@ -270,8 +308,18 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                     id={`order-discount-${discount.discount_name}`}
                                     size="sm"
                                     checked={checked}
-                                    onCheckedChange={(c) => {
-                                      const orderDiscount = c ? discount : null
+                                    onCheckedChange={(checked) => {
+                                      const orderDiscount = checked ? discount : null
+                                      if (checked) {
+                                        // Clear any per-item exclusions for this order-level discount
+                                        items.forEach((item) => {
+                                          excludeOrderLevelDiscountForItem(
+                                            item.id,
+                                            discount.discount_name,
+                                            false,
+                                          )
+                                        })
+                                      }
                                       handleOrderLevelChange({
                                         type: 'discount',
                                         value: orderDiscount as SelectedOrderDiscount,
@@ -314,8 +362,14 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                     id={`order-tax-${tax.name}`}
                                     size="sm"
                                     checked={checked}
-                                    onCheckedChange={(c) => {
-                                      const orderTax = c ? tax : null
+                                    onCheckedChange={(checked) => {
+                                      const orderTax = checked ? tax : null
+                                      if (checked) {
+                                        // Clear any per-item exclusions for this order-level tax
+                                        items.forEach((item) => {
+                                          excludeOrderLevelTaxRateForItem(item.id, tax, false)
+                                        })
+                                      }
                                       handleOrderLevelChange({
                                         type: 'tax',
                                         value: orderTax as SelectedOrderTax,
@@ -339,45 +393,6 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                       </Modal.Footer>
                     </Modal.Content>
                   </Modal.Root>
-
-                  {isLoading ? (
-                    <Box className={orderSummarySectionStyle}>
-                      <Skeleton
-                        className={css({
-                          h: '5',
-                          w: '60',
-                          mb: '2',
-                          borderRadius: 'sm',
-                          bg: 'gray.200',
-                        })}
-                      />
-                      <Skeleton
-                        className={css({
-                          h: '5',
-                          w: '56',
-                          mb: '2',
-                          borderRadius: 'sm',
-                          bg: 'gray.200',
-                        })}
-                      />
-                      <Skeleton
-                        className={css({ h: '6', w: '64', borderRadius: 'sm', bg: 'gray.200' })}
-                      />
-                    </Box>
-                  ) : (
-                    <Box className={orderSummarySectionStyle}>
-                      <Box className={totalDiscountStyle}>
-                        <b>Discount:</b>{' '}
-                        {formatMoney(orderPreview?.order.total_discount_money?.amount)}
-                      </Box>
-                      <Box className={totalTaxStyle}>
-                        <b>Tax:</b> {formatMoney(orderPreview?.order.total_tax_money?.amount)}
-                      </Box>
-                      <Box className={orderTotalStyle}>
-                        <b>Total:</b> {formatMoney(orderPreview?.order.total_money?.amount)}
-                      </Box>
-                    </Box>
-                  )}
                 </Box>
               )}
               <ButtonVariant

@@ -128,12 +128,6 @@ export const useCartStore = create<CartState>()(
             return item
           }),
         })),
-      // applyItemTax: (itemId: string, tax: TaxRate) =>
-      //   set((state: CartState) => ({
-      //     items: state.items.map((item: CartItem) =>
-      //       item.id === itemId ? { ...item, itemTaxRate: tax } : item,
-      //     ),
-      //   })),
       removeItemTax: (itemId: string) =>
         set((state: CartState) => ({
           items: state.items.map((item: CartItem) => {
