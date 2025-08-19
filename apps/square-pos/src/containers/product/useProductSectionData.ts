@@ -74,14 +74,16 @@ export function useProductSectionData({
   }, [data, products, params.query])
 
   // ? check discount uid
-  console.log('product data:', productData)
+  // console.log('product data:', productData)
 
   // * Memoize data extraction to prevent recalculation on every render
   const items = useMemo(() => extractItems(productData), [productData])
   const taxes = useMemo(() => extractTaxes(productData), [productData])
   const variationIds = useMemo(() => extractVariationIds(items), [items])
   const categories = useMemo(() => extractCategories(products as ProductCatalog), [products])
-  const allItemIds = useMemo(() => extractItemIds(items), [items])
+  // Use the FULL catalog as the universe for order-level logic
+  const allCatalogItems = useMemo(() => extractItems(products as ProductCatalog), [products])
+  const allCatalogItemIds = useMemo(() => extractItemIds(allCatalogItems), [allCatalogItems])
   const images = useMemo(() => extractImages(productData), [productData])
   const imageMap = useMemo(() => buildImageMap(images), [images])
 
@@ -114,21 +116,26 @@ export function useProductSectionData({
         discountToProductSetMap,
         discounts_data,
         product_sets_data,
-        allItemIds,
+        // Always evaluate against the complete catalog, not the filtered view
+        allCatalogItemIds,
       ),
-    [discountToProductSetMap, discounts_data, product_sets_data, allItemIds],
+    [discountToProductSetMap, discounts_data, product_sets_data, allCatalogItemIds],
   )
 
   // * Identify order-level discounts (those that apply to all items)
   const orderLevelDiscounts = useMemo(() => {
-    return discountApplications
-      .filter((app) => app.applied_product_ids.length === allItemIds.length)
-      .map((app) => ({
-        discount_id: app.discount_id,
-        discount_name: app.discount_name,
-        discount_value: app.discount_value,
-      }))
-  }, [discountApplications, allItemIds.length])
+    return (
+      discountApplications
+        // Compare against the full catalog universe to avoid misclassifying
+        // item/category discounts as order-level when the grid is filtered
+        .filter((app) => app.applied_product_ids.length === allCatalogItemIds.length)
+        .map((app) => ({
+          discount_id: app.discount_id,
+          discount_name: app.discount_name,
+          discount_value: app.discount_value,
+        }))
+    )
+  }, [discountApplications, allCatalogItemIds.length])
 
   // * Save order-level discounts to cart store
   useEffect(() => {

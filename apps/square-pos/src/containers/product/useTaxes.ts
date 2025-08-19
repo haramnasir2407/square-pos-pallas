@@ -1,9 +1,8 @@
-import type { TaxRate } from '@/shared/store/useCartStore'
-import type { UseTaxesReturn } from '@/shared/types/catalog'
+import type { Tax, UseTaxesReturn } from '@/shared/types/catalog'
 import { useEffect, useState } from 'react'
 
 export function useTaxes(accessToken: string): UseTaxesReturn {
-  const [taxes, setTaxes] = useState<TaxRate[]>([])
+  const [taxes, setTaxes] = useState<Tax[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 

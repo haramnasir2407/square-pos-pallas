@@ -35,7 +35,7 @@ export type ProductSectionProps = {
   imageMap: ImageMap
   discountApplications: DiscountApplication[]
   fetchedDiscounts: Discount[]
-  fetchedTaxes: TaxRate[]
+  fetchedTaxes: Tax[]
 }
 
 export type UseProductSectionDataReturn = {

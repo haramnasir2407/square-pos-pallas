@@ -16,9 +16,9 @@ import { formatMoney, handleOrderLevelChange } from '@/shared/utils/cartDrawerUt
 import { transformTaxes } from '@/shared/utils/productDataTransformers'
 import { useState } from 'react'
 import { FaShoppingCart } from 'react-icons/fa'
+import { MdOutlineDiscount } from 'react-icons/md'
 import { css } from '~/styled-system/css'
 import { Box } from '~/styled-system/jsx'
-import { MdOutlineDiscount } from 'react-icons/md'
 import {
   orderSummarySectionStyle,
   orderTotalStyle,
@@ -37,10 +37,8 @@ import {
   drawerTriggerStyle,
   emptyCartTextStyle,
   labelStyle,
-  orderLevelInfoStyle,
   summaryBoxStyle,
   summaryContainerStyle,
-  totalTextStyle,
 } from './styles/CartDrawer.styles'
 
 /**
@@ -48,7 +46,7 @@ import {
  * Handles item-level and order-level discounts/taxes, inventory, and checkout.
  */
 export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawerProps) {
-  // Use zustand store instead of CartContext
+  // Use zustand store
   const items = useCartStore((state) => state.items)
   const updateQuantity = useCartStore((state) => state.updateQuantity)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -84,6 +82,103 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
   )
 
   const orderlevelTaxes = transformTaxes(fetchedTaxes)
+
+  // // Auto-select order-level discount when all items share the same item-level discount
+  // useEffect(() => {
+  //   if (!items || items.length === 0) return
+  //   // Build intersection of discount names across all items
+  //   const perItemDiscountSets = items.map((item) => {
+  //     const names = new Set<string>()
+  //     if (item.appliedDiscounts && item.appliedDiscounts.length > 0) {
+  //       item.appliedDiscounts.forEach((d) => names.add(d.discount_name))
+  //     }
+  //     if (item.itemDiscount) {
+  //       names.add(item.itemDiscount.discount_name)
+  //     }
+  //     return names
+  //   })
+  //   if (perItemDiscountSets.length === 0) return
+  //   let commonNames = new Set<string>(perItemDiscountSets[0])
+  //   for (let i = 1; i < perItemDiscountSets.length; i++) {
+  //     const currentSet = perItemDiscountSets[i]
+  //     if (!currentSet) break
+  //     commonNames = new Set([...commonNames].filter((n) => currentSet.has(n)))
+  //     if (commonNames.size === 0) break
+  //   }
+  //   if (commonNames.size === 0) return
+  //   // Find matching order-level discount option
+  //   const candidates = orderLevelDiscounts.filter((d) => commonNames.has(d.discount_name))
+  //   if (candidates.length === 1) {
+  //     if (!candidates[0]) return
+  //     const candidate = candidates[0]
+  //     const alreadySelected =
+  //       selectedOrderDiscount && selectedOrderDiscount.discount_name === candidate.discount_name
+  //     if (!alreadySelected) {
+  //       // Clear any per-item exclusions for this order-level discount
+  //       items.forEach((it) => {
+  //         excludeOrderLevelDiscountForItem(it.id, candidate.discount_name, false)
+  //       })
+  //       handleOrderLevelChange({
+  //         type: 'discount',
+  //         value: candidate as SelectedOrderDiscount,
+  //         setSelectedOrderDiscount,
+  //         setSelectedOrderTax,
+  //       })
+  //     }
+  //   }
+  // }, [items, orderLevelDiscounts, selectedOrderDiscount, excludeOrderLevelDiscountForItem])
+
+  // // Auto-select order-level tax when all items share the same item-level tax
+  // useEffect(() => {
+  //   if (!items || items.length === 0) return
+  //   const toNumber = (p: string | number | null | undefined) =>
+  //     typeof p === 'number' ? p : p ? Number(p) : Number.NaN
+  //   // Build intersection of tax keys (name|percentage) across all items
+  //   const perItemTaxSets = items.map((item) => {
+  //     const set = new Set<string>()
+  //     ;(item.appliedTaxRates ?? []).forEach((t) => {
+  //       set.add(`${t.name}|${toNumber(t.percentage)}`)
+  //     })
+  //     return set
+  //   })
+  //   if (perItemTaxSets.length === 0) return
+  //   let common = new Set<string>(perItemTaxSets[0])
+  //   for (let i = 1; i < perItemTaxSets.length; i++) {
+  //     const currentSet = perItemTaxSets[i]
+  //     if (!currentSet) break
+  //     common = new Set([...common].filter((k) => currentSet.has(k)))
+  //     if (common.size === 0) break
+  //   }
+  //   if (common.size === 0) return
+  //   // Map intersection to order-level tax options
+  //   const candidates = orderlevelTaxes.filter((ot) =>
+  //     common.has(`${ot.name}|${toNumber(ot.percentage)}`),
+  //   )
+  //   if (candidates.length === 1) {
+  //     if (!candidates[0]) return
+  //     const candidate = candidates[0]
+  //     const alreadySelected =
+  //       selectedOrderTax &&
+  //       selectedOrderTax.name === candidate.name &&
+  //       toNumber(selectedOrderTax.percentage) === toNumber(candidate.percentage)
+  //     if (!alreadySelected) {
+  //       // Clear any per-item exclusions for this order-level tax
+  //       items.forEach((it) => {
+  //         excludeOrderLevelTaxRateForItem(
+  //           it.id,
+  //           { tax_id: candidate.tax_id, name: candidate.name, percentage: candidate.percentage },
+  //           false,
+  //         )
+  //       })
+  //       handleOrderLevelChange({
+  //         type: 'tax',
+  //         value: candidate as SelectedOrderTax,
+  //         setSelectedOrderDiscount,
+  //         setSelectedOrderTax,
+  //       })
+  //     }
+  //   }
+  // }, [items, orderlevelTaxes, selectedOrderTax, excludeOrderLevelTaxRateForItem])
 
   return (
     <Drawer.Root
@@ -321,6 +416,11 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                             false,
                                           )
                                         })
+                                      } else {
+                                        // Removing order-level discount: also remove any matching item-level applications
+                                        items.forEach((it) => {
+                                          toggleItemDiscount(it.id, discount, false)
+                                        })
                                       }
                                       handleOrderLevelChange({
                                         type: 'discount',
@@ -370,6 +470,11 @@ export default function CartDrawer({ accessToken, cartInventoryInfo }: CartDrawe
                                         // Clear any per-item exclusions for this order-level tax
                                         items.forEach((item) => {
                                           excludeOrderLevelTaxRateForItem(item.id, tax, false)
+                                        })
+                                      } else {
+                                        // Removing order-level tax: also remove any matching item-level applications
+                                        items.forEach((it) => {
+                                          toggleItemTaxRate(it.id, tax, false)
                                         })
                                       }
                                       handleOrderLevelChange({
